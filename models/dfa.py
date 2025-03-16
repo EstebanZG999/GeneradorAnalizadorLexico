@@ -1,4 +1,5 @@
 # models/dfa.py
+import os
 import graphviz
 from models.syntax_tree import NodoHoja, NodoBinario, NodoUnario, SyntaxTree
 
@@ -122,22 +123,24 @@ class DFA:
 
 
 
+
     def render_dfa(self, filename="dfa"):
         """
-        Genera un diagrama del AFD usando Graphviz.
-        Cada estado se representa por su ID y (opcionalmente) su conjunto de posiciones.
+        Genera un diagrama del AFD usando Graphviz y lo guarda en la carpeta 'imagenes/'.
         """
+        # Asegurar que la carpeta 'imagenes' existe
+        if not os.path.exists("imagenes"):
+            os.makedirs("imagenes")
+
         dot = graphviz.Digraph(format="png")
 
         # Agregar estados
         for state_set, state_id in self.states.items():
-            # Marca los estados de aceptación con doble círculo
             shape = "doublecircle" if state_id in self.accepting_states else "circle"
-            # Etiqueta: muestra state_id y (si deseas) las posiciones
-            label = f"q{state_id}\n{state_set}"  
+            label = f"q{state_id}\n{state_set}"
             dot.node(str(state_id), label=label, shape=shape)
 
-        # Estado inicial: dibujar una flecha vacía que apunta al estado inicial
+        # Estado inicial
         dot.node("start", shape="none", label="")
         dot.edge("start", str(self.initial_state))
 
@@ -147,8 +150,11 @@ class DFA:
                 symbol_escaped = symbol.replace('\\', '\\\\').replace('"', '\\"')
                 dot.edge(str(state_id), str(target_id), label=f"\"{symbol_escaped}\"")
 
-        # Renderizar
-        dot.render(filename, view=True)
+        # Guardar la imagen en la carpeta 'imagenes/'
+        output_path = f"imagenes/{filename}"
+        dot.render(output_path, view=False)
+
+        print(f"Imagen del DFA guardada en: {output_path}.png")
 
  
  

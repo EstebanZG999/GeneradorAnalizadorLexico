@@ -1,3 +1,4 @@
+import os
 import graphviz
 
 class NodoBase:
@@ -116,12 +117,23 @@ class SyntaxTree:
         return self.raiz
 
     
+
     def render(self, filename="syntax_tree"):
-        """Genera una imagen (PNG) del árbol sintáctico usando Graphviz."""
+        """Genera una imagen (PNG) del árbol sintáctico y la guarda en 'imagenes/'."""
+
+        # Asegurar que la carpeta 'imagenes' existe
+        if not os.path.exists("imagenes"):
+            os.makedirs("imagenes")
+
         dot = graphviz.Digraph(format="png")
         if self.raiz:
             self.raiz.to_dot(dot)
-        dot.render(filename, view=True)  # Renderiza y abre la imagen resultante
+
+        # Guardar la imagen en la carpeta 'imagenes/'
+        output_path = f"imagenes/{filename}"
+        dot.render(output_path, view=False)
+
+        print(f"Imagen del árbol sintáctico guardada en: {output_path}.png")
 
 if __name__ == "__main__":
     from regex_parser import RegexParser

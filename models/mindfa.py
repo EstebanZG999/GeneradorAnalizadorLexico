@@ -1,5 +1,6 @@
 # mindfa.py
 
+import os
 from .dfa import DFA
 import graphviz
 
@@ -131,7 +132,16 @@ def minimize_dfa(dfa: DFA) -> DFA:
 
 
 def render_mindfa(dfa, filename="mindfa"):
+    """
+    Genera un diagrama del DFA minimizado y lo guarda en la carpeta 'imagenes/'.
+    """
+
+    # Asegurar que la carpeta 'imagenes' existe
+    if not os.path.exists("imagenes"):
+        os.makedirs("imagenes")
+
     dot = graphviz.Digraph(format="png")
+
     for state_set, state_id in dfa.states.items():
         shape = "doublecircle" if state_id in dfa.accepting_states else "circle"
         label = f"q{state_id}\n{state_set}"
@@ -144,7 +154,11 @@ def render_mindfa(dfa, filename="mindfa"):
         for symbol, target_id in trans_dict.items():
             dot.edge(str(state_id), str(target_id), label=symbol)
 
-    dot.render(filename, view=True)
+    # Guardar la imagen en la carpeta 'imagenes/'
+    output_path = f"imagenes/{filename}"
+    dot.render(output_path, view=False)
+
+    print(f"Imagen del DFA minimizado guardada en: {output_path}.png")
 
 
 
