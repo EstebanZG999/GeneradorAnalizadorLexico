@@ -33,8 +33,17 @@ class YALexParser:
             self.entrypoint = rule_match.group(1).strip()
             rules_content = rule_match.group(2).strip()
             # Asumimos que cada alternativa tiene el formato: regexp { action }
-            rules = re.findall(r'(.*?)\{(.*?)\}', rules_content, re.DOTALL)
-            self.rules = [(r.strip(), a.strip()) for r, a in rules]
+            raw_rules = re.findall(r'(.*?)\{(.*?)\}', rules_content, re.DOTALL)
+            filtered_rules = []
+            for regex_part, action_part in raw_rules:
+                # Quitamos espacios extremos
+                regex_clean = regex_part.strip()
+                # Si empieza con '|' lo removemos (pero solo esa marca, sin afectar el resto)
+                if regex_clean.startswith('|'):
+                    regex_clean = regex_clean[1:].strip()
+                if regex_clean:  # Solo agregamos si no está vacía
+                    filtered_rules.append((regex_clean, action_part.strip()))
+            self.rules = filtered_rules
 
         # 4. Extraer {trailer} (si existe, asumimos que es el último bloque entre { } al final)
         trailer_match = re.search(r'\{(.*?)\}\s*$', content, re.DOTALL)
