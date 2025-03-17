@@ -27,7 +27,7 @@ class RegexParser:
         if last_token is None:
             return False
         if last_token.is_operator:
-            if last_token.value not in {')', '*'}:
+            if last_token.value not in {')', '*', '+'}:
                 return False
         # Si el token actual es literal o el inicio de un grupo, se concatena.
         if current_token_type in ['literal', 'group_start']:
@@ -146,7 +146,24 @@ class RegexParser:
 
                 skip_until = j + 1
                 continue
-                
+            elif char == "'" or char == '"':
+                # Procesar literal entre comillas.
+                quote_char = char
+                literal = ""
+                j = i + 1
+                while j < len(self.regex) and self.regex[j] != quote_char:
+                    literal += self.regex[j]
+                    j += 1
+                if j >= len(self.regex):
+                    raise ValueError("No se encontró la comilla de cierre para literal.")
+                # Actualizamos 'skip_until' para saltar el literal entero
+                skip_until = j + 1
+                if self.should_concat(last_token, 'literal'):
+                    output.append(Symbol('.', is_operator=True))
+                token = Symbol(literal, is_operator=False)
+                output.append(token)
+                last_token = token
+                continue
             elif char.isalnum() or char == '#'or char == '$':  # Simbolo o marcador de fin
                 # Inserta concatenación si no es el último
                 if self.should_concat(last_token, 'literal'):
@@ -154,39 +171,6 @@ class RegexParser:
                 token = Symbol(char, is_operator=False)
                 output.append(token)
                 last_token = token
-                continue
-            elif char == '+': # Operador '+' 
-                if last_token is None:
-                    raise ValueError("El operador '+' no tiene un operando válido.")
-                if last_token.value == ')':
-                    # Caso: el '+' se aplica a un grupo.
-                    # Buscar el paréntesis de apertura que corresponde al último ')'.
-                    group_start = None
-                    for idx in range(len(output) - 1, -1, -1):
-                        if output[idx].value == '(':
-                            group_start = idx
-                            break
-                    if group_start is None:
-                        raise ValueError("No se encontró '(' que corresponda al ')'.")
-                    # Copiar los tokens que componen el grupo (sin contar los paréntesis)
-                    group_tokens = [Symbol(tok.value, tok.is_operator) for tok in output[group_start+1: len(output)-1]
-                                   ]
-                    # Insertar concatenación explícita antes de la copia del grupo
-                    output.append(Symbol('.', is_operator=True))
-                    # Envolver la copia en paréntesis para que se trate como un subgrupo completo
-                    output.append(Symbol('(', is_operator=True))
-                    output.extend(group_tokens)
-                    output.append(Symbol(')', is_operator=True))
-                    # Agregar el operador '*'
-                    output.append(Symbol('*', is_operator=True))
-                    last_token = output[-1]
-                else:
-                    # Caso: el '+' se aplica a un literal.
-                    output.append(Symbol('.', is_operator=True))
-                    token_literal = Symbol(last_token.value, is_operator=False)
-                    output.append(token_literal)
-                    output.append(Symbol('*', is_operator=True))
-                    last_token = output[-1]
                 continue
             elif char in self.OPERATORS:
                 token = Symbol(char, is_operator=True)
@@ -216,10 +200,6 @@ class RegexParser:
         return output
     
     def to_postfix(self):
-        """
-        Convierte la expresión regular (con concatenaciones explícitas) en notación postfija (RPN)
-        usando el algoritmo de Shunting-yard.
-        """
         output = []
         stack = deque()
         
@@ -231,22 +211,28 @@ class RegexParser:
             elif token.value == ')':
                 while stack and stack[-1].value != '(':
                     output.append(stack.pop())
-                stack.pop()  # Descarta el '('
+                if stack:
+                    stack.pop()  # Descarta el '('
+                else:
+                    raise ValueError("No se encontró un '(' que haga match con ')'.")
             elif token.value in {'|', '.'}:  # operadores binarios
                 while (stack and stack[-1].value in {'|', '.'} and
                        self.PRECEDENCE[token.value] <= self.PRECEDENCE[stack[-1].value]):
                     output.append(stack.pop())
                 stack.append(token)
-            elif token.value == '*':  # operador unario (postfijo): se coloca directamente en la salida
+            elif token.value in {'*', '+'}:  # operadores unarios
                 output.append(token)
             else:
                 stack.append(token)
         
         while stack:
             op = stack.pop()
+            if op.value in {'(', ')'}:
+                raise ValueError("Paréntesis desbalanceados")
             output.append(op)
-
+    
         return output
+
     
     def parse(self):
         """
