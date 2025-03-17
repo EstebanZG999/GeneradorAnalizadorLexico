@@ -105,6 +105,12 @@ class SyntaxTree:
             elif token.value == '*':  # Nodo unario
                 nodo = stack.pop()
                 stack.append(NodoUnario(token.value, nodo))
+            elif token.value == '+':  # Operador unario de "una o más"
+                # Transformamos A+ en A concatenado con A*
+                nodo = stack.pop()                    # A
+                nodo_clausura = NodoUnario('*', nodo)   # A*
+                nodo_concat = NodoBinario('.', nodo, nodo_clausura)  # A · A*
+                stack.append(nodo_concat)
             elif token.value in {'.', '|'}:  # Nodo binario
                 derecho = stack.pop()
                 izquierdo = stack.pop()
