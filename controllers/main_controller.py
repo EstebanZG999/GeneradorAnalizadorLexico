@@ -15,34 +15,50 @@ from views.cli_view import (
 )
 
 
-def test_yalex_parser(input_file):
-    # Instancia el parser con el archivo .yal
+def test_full_pipeline(input_file):
+    # Instanciar y parsear el archivo YALex
     parser = YALexParser(input_file)
-    # Llama al método parse() para extraer header, definiciones, reglas y trailer
     parser.parse()
 
-    # Imprime los resultados para verificar la extracción
-    print("=== Header ===")
-    print(parser.header_code)
-    print("\n=== Definiciones ===")
-    for ident, regex in parser.definitions.items():
-        print(f"{ident} = {regex}")
-    print("\n=== Regla y Acciones ===")
-    print(f"Entrypoint: {parser.entrypoint}")
-    for i, (regex, action) in enumerate(parser.rules, start=1):
-        # Expande las definiciones para ver la expresión regular completa
-        expanded_regex = parser.expand_definitions(regex)
-        print(f"Regla {i}:")
-        print(f"  Regex original: {regex}")
-        print(f"  Regex expandida: {expanded_regex}")
-        print(f"  Acción: {action}")
-    print("\n=== Trailer ===")
-    print(parser.trailer_code)
+    # Para cada regla extraída
+    for idx, (regex_str, action_code) in enumerate(parser.rules, start=1):
+        print(f"\n=== Procesando Regla {idx} ===")
+        print("Regex original:", regex_str)
+        
+        # Limpieza: elimina '|' y espacios iniciales
+        regex_str_clean = regex_str.lstrip("| ").strip()
+        print("Regex limpia:", regex_str_clean)
+        
+        # Si está vacía, la saltamos
+        if not regex_str_clean:
+            print("Regla vacía. Se omite.")
+            continue
 
-if __name__ == "__main__":
-    # Ruta relativa al archivo de entrada (por ejemplo, "inputs/example.yal")
-    input_file = "inputs/example.yal"
-    test_yalex_parser(input_file)
+        # Expandir definiciones
+        expanded_regex = parser.expand_definitions(regex_str_clean)
+        print("Regex expandida:", expanded_regex)
+        
+        # Convertir a notación postfix
+        r_parser = RegexParser(expanded_regex)
+        postfix = r_parser.parse()
+        print("Postfix:", [str(token) for token in postfix])
+        
+        # Construir el árbol de sintaxis
+        syntax_tree = SyntaxTree(postfix)
+        # (Opcional: puedes graficar el árbol)
+        # syntax_tree.render(f"imagenes/syntax_tree/tree_regla_{idx}")
+        
+        # Generar el DFA
+        dfa = DFA(syntax_tree)
+        print("Estados del DFA:")
+        for state_set, state_id in dfa.states.items():
+            print(f"  Estado {state_id}: {set(state_set)}")
+        print("Transiciones:")
+        for state_id, trans in dfa.transitions.items():
+            for symbol, target in trans.items():
+                print(f"  δ({state_id}, '{symbol}') = {target}")
+        
+        print("Acción asociada:", action_code)
 
 
 def run_app():
