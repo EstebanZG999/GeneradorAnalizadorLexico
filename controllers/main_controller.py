@@ -3,6 +3,7 @@
 from models.regex_parser import RegexParser
 from models.syntax_tree import SyntaxTree
 from models.dfa import DFA
+from models.yalex_parser import YALexParser
 from models.mindfa import minimize_dfa
 from views.cli_view import (
     ask_for_regex,
@@ -12,6 +13,37 @@ from views.cli_view import (
     show_simulation_result,
     show_message
 )
+
+
+def test_yalex_parser(input_file):
+    # Instancia el parser con el archivo .yal
+    parser = YALexParser(input_file)
+    # Llama al método parse() para extraer header, definiciones, reglas y trailer
+    parser.parse()
+
+    # Imprime los resultados para verificar la extracción
+    print("=== Header ===")
+    print(parser.header_code)
+    print("\n=== Definiciones ===")
+    for ident, regex in parser.definitions.items():
+        print(f"{ident} = {regex}")
+    print("\n=== Regla y Acciones ===")
+    print(f"Entrypoint: {parser.entrypoint}")
+    for i, (regex, action) in enumerate(parser.rules, start=1):
+        # Expande las definiciones para ver la expresión regular completa
+        expanded_regex = parser.expand_definitions(regex)
+        print(f"Regla {i}:")
+        print(f"  Regex original: {regex}")
+        print(f"  Regex expandida: {expanded_regex}")
+        print(f"  Acción: {action}")
+    print("\n=== Trailer ===")
+    print(parser.trailer_code)
+
+if __name__ == "__main__":
+    # Ruta relativa al archivo de entrada (por ejemplo, "inputs/example.yal")
+    input_file = "inputs/example.yal"
+    test_yalex_parser(input_file)
+
 
 def run_app():
     # 1) Solicitar regex al usuario
