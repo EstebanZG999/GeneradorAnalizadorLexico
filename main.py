@@ -1,8 +1,8 @@
 # main.py
 
-from controllers.main_controller import run_app, test_yalex_parser
+from controllers.main_controller import run_app, test_full_pipeline
 
 if __name__ == "__main__":
-    test_yalex_parser("inputs/lexer.yal")
+    test_full_pipeline("inputs/lexer.yal")
 
-    #run_app()
+    # run_app()
