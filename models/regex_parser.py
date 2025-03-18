@@ -160,6 +160,7 @@ class RegexParser:
                 skip_until = j + 1
                 if self.should_concat(last_token, 'literal'):
                     output.append(Symbol('.', is_operator=True))
+                literal = bytes(literal, "utf-8").decode("unicode_escape")
                 token = Symbol(literal, is_operator=False)
                 output.append(token)
                 last_token = token
