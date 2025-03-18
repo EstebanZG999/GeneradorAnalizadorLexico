@@ -93,11 +93,15 @@ class DFA:
                         unmarked_states.append(u)
                     self.transitions[current_state_id][symbol] = self.states[u]
 
-        # Estados de aceptación
-        for state_set, state_id in self.states.items():
-            if any(self.pos_to_symbol[pos] == '#' for pos in state_set):
-                self.accepting_states.add(state_id)
-
+            # Estados de aceptación
+            for state_set, state_id in self.states.items():
+                if any(self.pos_to_symbol[pos] == '#' for pos in state_set):
+                    self.accepting_states.add(state_id)
+            if not self.accepting_states:
+                max_pos = max(self.pos_to_symbol.keys())
+                for state_set, state_id in self.states.items():
+                    if max_pos in state_set:
+                        self.accepting_states.add(state_id)
 
     def simulate(self, string):
         """Simula el AFD con la cadena de entrada 'string'. Devuelve True si se acepta, False en caso contrario."""
