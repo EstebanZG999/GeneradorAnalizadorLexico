@@ -192,6 +192,16 @@ class RegexParser:
                 output.append(Symbol(')', is_operator=True))
                 last_token = Symbol(')', is_operator=True)
                 continue
+            elif char.isspace():
+                continue
+            elif ord(char) >= 128:
+                # Tratamos los caracteres de marcador (códigos ≥ 128) como literales.
+                if self.should_concat(last_token, 'literal'):
+                    output.append(Symbol('.', is_operator=True))
+                token = Symbol(char, is_operator=False)
+                output.append(token)
+                last_token = token
+                continue
             raise ValueError(f"Carácter no reconocido: {char}")
 
         if escaped:
