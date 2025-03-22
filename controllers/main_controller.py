@@ -16,6 +16,108 @@ from views.cli_view import (
     show_message
 )
 
+
+def generate_global_dfa():
+    """
+    Genera un DFA global a partir de la especificación en 'inputs/lexer.yal',
+    asignando un marcador único a cada regla y combinándolas en una única expresión regular.
+    """
+    spec_filename = "inputs/lexer.yal"
+    yalex_parser = YALexParser(spec_filename)
+    yalex_parser.parse()
+    
+    global_rules = []
+    marker_to_rule = {}
+    
+    for i, (regex_str, action_code) in enumerate(yalex_parser.rules):
+        # Limpieza de la regex: remover '|' inicial y espacios
+        regex_clean = regex_str.lstrip("| ").strip()
+        if not regex_clean:
+            continue
+        
+        # Expandir definiciones
+        expanded_regex = yalex_parser.expand_definitions(regex_clean)
+        # Elimina saltos de línea y espacios extra de la expresión expandida
+        expanded_regex = expanded_regex.replace("\n", "").strip()
+        # Remover el marcador terminal '#' si existe
+        if expanded_regex.endswith('#'):
+            expanded_regex = expanded_regex[:-1]
+        
+        # Asignar un marcador único para esta regla
+        marker = chr(128 + i)
+        marker_to_rule[marker] = {'order': i, 'action': action_code}
+        
+        # Concatena el marcador único al final de la expresión
+        token_regex = f"{expanded_regex}{marker}"
+        # Asegurarse de limpiar la cadena final
+        token_regex = token_regex.replace("\n", "").strip()
+        global_rules.append(token_regex)
+
+    
+    # Combina todas las expresiones en una única expresión global con alternancia
+    global_regex = "|".join(f"({r})" for r in global_rules)
+    print("Expresión global generada:", global_regex)
+    
+    # (Opcional) Remueve cualquier salto de línea que pueda quedar en la expresión global
+    global_regex = global_regex.replace("\n", "").replace("\r", "").strip()
+    print("Expresión global generada (repr):", repr(global_regex))
+    
+    # Procesar la expresión global: tokenizar, convertir a postfix, construir árbol y DFA
+    r_parser = RegexParser(global_regex)
+    r_parser.tokenize()
+    postfix = r_parser.to_postfix()
+    syntax_tree = SyntaxTree(postfix)
+    global_dfa = DFA(syntax_tree)
+    
+    # Asigna el mapeo de marcadores al DFA
+    global_dfa.marker_to_rule = marker_to_rule
+    # Crea una estructura para mapear cada ID de estado a su conjunto de posiciones
+    global_dfa.state_sets = {state_id: state_set for state_set, state_id in global_dfa.states.items()}
+    
+    # Genera la imagen del DFA global en la carpeta 'imagenes' con Graphviz
+    global_dfa.render_dfa("global_dfa")
+    
+    return global_dfa
+
+
+def match_prefix_and_token(self, input_str):
+    """
+    Recorre el input carácter a carácter y retorna una tupla (largo, token_info),
+    donde token_info contiene la acción y el orden asociados al token reconocido.
+    """
+    current_state = self.initial_state
+    last_accept_pos = -1
+    accepted_state = None
+    pos = 0
+    
+    for ch in input_str:
+        if ch in self.transitions.get(current_state, {}):
+            current_state = self.transitions[current_state][ch]
+            pos += 1
+            if current_state in self.accepting_states:
+                last_accept_pos = pos
+                accepted_state = current_state
+        else:
+            break
+
+    if last_accept_pos != -1 and accepted_state is not None:
+        # Obtén el conjunto de posiciones asociado al estado aceptador
+        state_set = self.state_sets[accepted_state]
+        matched_marker = None
+        # Busca entre las posiciones la que corresponda a un marcador único
+        for pos_val in state_set:
+            symbol = self.pos_to_symbol[pos_val]
+            if symbol in self.marker_to_rule:
+                if matched_marker is None or self.marker_to_rule[symbol]['order'] < self.marker_to_rule[matched_marker]['order']:
+                    matched_marker = symbol
+        if matched_marker is not None:
+            return last_accept_pos, self.marker_to_rule[matched_marker]
+    return 0, None
+
+# Asigna el nuevo método a la clase DFA
+setattr(DFA, "match_prefix_and_token", match_prefix_and_token)
+
+
 def extend_dfa_with_match_prefix():
     """
     Agrega a la clase DFA el método match_prefix, que recorre el input
