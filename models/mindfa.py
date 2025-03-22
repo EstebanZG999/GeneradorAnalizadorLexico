@@ -135,24 +135,34 @@ def render_mindfa(dfa, filename="mindfa"):
     """
     Genera un diagrama del DFA minimizado y lo guarda en la carpeta 'imagenes/'.
     """
-
     # Asegurar que la carpeta 'imagenes' existe
     if not os.path.exists("imagenes"):
         os.makedirs("imagenes")
 
     dot = graphviz.Digraph(format="png")
 
+    # Procesar nodos: se escapan caracteres problemáticos y se encierran los labels en comillas dobles
     for state_set, state_id in dfa.states.items():
         shape = "doublecircle" if state_id in dfa.accepting_states else "circle"
-        label = f"q{state_id}\n{state_set}"
-        dot.node(str(state_id), label=label, shape=shape)
+        # Construir el label; usamos "\\n" para salto de línea
+        label = f"q{state_id}\\n{state_set}"
+        # Escapar comillas dobles si las hubiera
+        escaped_label = label.replace('"', '\\"')
+        # Forzamos que el label se incluya entre comillas
+        quoted_label = f'"{escaped_label}"'
+        dot.node(str(state_id), quoted_label, shape=shape)
 
-    dot.node("start", shape="none", label="")
+    # Nodo inicial
+    dot.node("start", shape="none", label='""')
     dot.edge("start", str(dfa.initial_state))
 
+    # Procesar transiciones: se encierran los labels en comillas dobles
     for state_id, trans_dict in dfa.transitions.items():
         for symbol, target_id in trans_dict.items():
-            dot.edge(str(state_id), str(target_id), label=symbol)
+            # Convierte el símbolo a string y escapa comillas
+            edge_label = str(symbol).replace('"', '\\"')
+            quoted_edge_label = f'"{edge_label}"'
+            dot.edge(str(state_id), str(target_id), label=quoted_edge_label)
 
     # Guardar la imagen en la carpeta 'imagenes/'
     output_path = f"imagenes/{filename}"
