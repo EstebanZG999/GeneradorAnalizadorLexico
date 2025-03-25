@@ -1,6 +1,7 @@
 # controllers/main_controller.py
 
 import os
+import contextlib, io
 import textwrap
 from models.regex_parser import RegexParser
 from models.syntax_tree import SyntaxTree
@@ -253,7 +254,7 @@ def generate_lexer():
     print("\nDefiniciones encontradas:")
     for ident, definition in yalex_parser.definitions.items():
         print(f"  {ident} = {definition}")
-    print("\nReglas encontradas:")
+    # print("\nReglas encontradas:")
     
     rules = []
     for idx, (regex_str, action_code) in enumerate(yalex_parser.rules):
@@ -267,16 +268,17 @@ def generate_lexer():
         if '#' not in expanded_regex:
             expanded_regex = expanded_regex + '#'
             added_marker = True
-        print(f"Regla {idx+1} expandida: {expanded_regex}")
+        with contextlib.redirect_stdout(io.StringIO()):
+            print(f"Regla {idx+1} expandida: {expanded_regex}")
         # Construir el DFA para la regla
         r_parser = RegexParser(expanded_regex)
         r_parser.tokenize()
         postfix = r_parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        # (Opcional: generar imágenes para verificar)
-        syntax_tree.render(f"syntax_tree_rule_{idx+1}")
-        dfa.render_dfa(f"dfa_rule_{idx+1}")
+        with contextlib.redirect_stdout(io.StringIO()):
+            syntax_tree.render(f"syntax_tree_rule_{idx+1}")
+            dfa.render_dfa(f"dfa_rule_{idx+1}")
         rules.append({
             'regex': expanded_regex,
             'action': action_code,
