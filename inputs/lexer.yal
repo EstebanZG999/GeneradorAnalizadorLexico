@@ -1,5 +1,5 @@
 { 
-  # Código de header (opcional)
+  # Código de header
   import myToken
 }
 let DIGIT = [0-9]
@@ -17,5 +17,5 @@ rule gettoken =
     | eof    { return ("EOF", None) }
     | '\n' { return ("EOL", None) }
 { 
-  # Código de trailer (opcional)
+  # Código de trailer 
 }
