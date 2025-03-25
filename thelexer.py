@@ -38,6 +38,26 @@ class Lexer:
         from models.regex_parser import RegexParser
         from models.syntax_tree import SyntaxTree
         from models.dfa import DFA
+        # Regla: ([A-Za-z]) (([A-Za-z]) | ([0-9]))+#
+        parser = RegexParser(r'''([A-Za-z]) (([A-Za-z]) | ([0-9]))+#''')
+        parser.tokenize()
+        postfix = parser.to_postfix()
+        syntax_tree = SyntaxTree(postfix)
+        dfa = DFA(syntax_tree)
+        rules.append({'regex': r'''([A-Za-z]) (([A-Za-z]) | ([0-9]))+#''', 'action': r'''return ("WORD", lexeme)''', 'dfa': dfa})
+        from models.regex_parser import RegexParser
+        from models.syntax_tree import SyntaxTree
+        from models.dfa import DFA
+        # Regla: ([A-Za-z])#
+        parser = RegexParser(r'''([A-Za-z])#''')
+        parser.tokenize()
+        postfix = parser.to_postfix()
+        syntax_tree = SyntaxTree(postfix)
+        dfa = DFA(syntax_tree)
+        rules.append({'regex': r'''([A-Za-z])#''', 'action': r'''return ("LETTER", lexeme)''', 'dfa': dfa})
+        from models.regex_parser import RegexParser
+        from models.syntax_tree import SyntaxTree
+        from models.dfa import DFA
         # Regla: [' ' '\t']#
         parser = RegexParser(r'''[' ' '\t']#''')
         parser.tokenize()
