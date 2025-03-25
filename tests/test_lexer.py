@@ -8,9 +8,7 @@ extend_dfa_with_match_prefix()
 from thelexer import Lexer
 
 def main():
-    entrada = """10 + 2
-    5 - 3
-    8 * 4"""
+    entrada = """Adios"""
     lexer = Lexer(entrada)
     tokens = lexer.get_tokens()
     print(tokens)
