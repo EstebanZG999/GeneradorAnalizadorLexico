@@ -1,4 +1,4 @@
-# mindfa.py
+# models/mindfa.py
 
 import os
 from .dfa import DFA
