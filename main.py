@@ -1,7 +1,7 @@
 # main.py
 
-from controllers.main_controller import run_app, test_full_pipeline, generate_lexer, generate_global_dfa
-from models.mindfa import minimize_dfa, render_mindfa
+from src.controllers.main_controller import run_app, test_full_pipeline, generate_lexer, generate_global_dfa
+from src.models.mindfa import minimize_dfa, render_mindfa
 
 
 if __name__ == "__main__":

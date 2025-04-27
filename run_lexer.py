@@ -4,7 +4,7 @@ import os
 # Asegurarse de que el directorio raíz esté en el path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-from controllers.main_controller import generate_lexer, extend_dfa_with_match_prefix
+from src.controllers.main_controller import generate_lexer, extend_dfa_with_match_prefix
 
 # Extender el DFA con el método match_prefix (necesario para la simulación)
 extend_dfa_with_match_prefix()

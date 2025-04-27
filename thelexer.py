@@ -35,9 +35,9 @@ class Lexer:
     @property
     def rules(self):
         rules = []
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: ([A-Za-z]) (([A-Za-z]) | ([0-9]))+#
         parser = RegexParser(r'''([A-Za-z]) (([A-Za-z]) | ([0-9]))+#''')
         parser.tokenize()
@@ -45,9 +45,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r'''([A-Za-z]) (([A-Za-z]) | ([0-9]))+#''', 'action': r'''return ("WORD", lexeme)''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: ([A-Za-z])#
         parser = RegexParser(r'''([A-Za-z])#''')
         parser.tokenize()
@@ -55,9 +55,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r'''([A-Za-z])#''', 'action': r'''return ("LETTER", lexeme)''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: [' ' '\t']#
         parser = RegexParser(r'''[' ' '\t']#''')
         parser.tokenize()
@@ -65,9 +65,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r'''[' ' '\t']#''', 'action': r'''return None''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: ([0-9])+#
         parser = RegexParser(r'''([0-9])+#''')
         parser.tokenize()
@@ -75,9 +75,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r'''([0-9])+#''', 'action': r'''return ("NUMBER", int(lexeme))''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: '+'#
         parser = RegexParser(r''''+'#''')
         parser.tokenize()
@@ -85,9 +85,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r''''+'#''', 'action': r'''return ("PLUS", "+")''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: '-'#
         parser = RegexParser(r''''-'#''')
         parser.tokenize()
@@ -95,9 +95,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r''''-'#''', 'action': r'''return ("MINUS", "-")''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: '*'#
         parser = RegexParser(r''''*'#''')
         parser.tokenize()
@@ -105,9 +105,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r''''*'#''', 'action': r'''return ("TIMES", "*")''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: '('#
         parser = RegexParser(r''''('#''')
         parser.tokenize()
@@ -115,9 +115,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r''''('#''', 'action': r'''return ("LPAREN", "(")''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: ')'#
         parser = RegexParser(r'''')'#''')
         parser.tokenize()
@@ -125,9 +125,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r'''')'#''', 'action': r'''return ("RPAREN", ")")''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: eof#
         parser = RegexParser(r'''eof#''')
         parser.tokenize()
@@ -135,9 +135,9 @@ class Lexer:
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         rules.append({'regex': r'''eof#''', 'action': r'''return ("EOF", None)''', 'dfa': dfa})
-        from models.regex_parser import RegexParser
-        from models.syntax_tree import SyntaxTree
-        from models.dfa import DFA
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
         # Regla: '\n'#
         parser = RegexParser(r''''\n'#''')
         parser.tokenize()
