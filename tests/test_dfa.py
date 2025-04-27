@@ -1,23 +1,38 @@
 # tests/test_dfa.py
+import pytest
+from models.regex_parser import RegexParser
+from models.syntax_tree import SyntaxTree
+from models.dfa import DFA
 
-from models.mock_syntax_tree import build_mock_tree_for_ab_star_hash
-from models.dfa import build_dfa
+@pytest.fixture
+def make_dfa():
+    def _mk(regex):
+        parser = RegexParser(regex)
+        postfix = parser.parse()
+        tree = SyntaxTree(postfix)
+        return DFA(tree)
+    return _mk
 
-def test_build_dfa_mock():
-    # 1. Obtener el árbol mock
-    syntax_tree = build_mock_tree_for_ab_star_hash()
+def test_dfa_simple_acceptance(make_dfa):
+    dfa = make_dfa("a#")
+    assert dfa.simulate("a") is True
+    assert dfa.simulate("")  is False
+    assert dfa.simulate("b") is False
 
-    # 2. Construir el AFD
-    dfa = build_dfa(syntax_tree)
-    
-    # 3. (Opcional) Revisar transiciones
-    print("=== Estados generados ===")
-    for state, edges in dfa.transitions.items():
-        print(f"  Desde {state}:")
-        for symbol, next_state in edges.items():
-            print(f"    Con '{symbol}' => {next_state}")
+def test_dfa_concat(make_dfa):
+    dfa = make_dfa("ab#")
+    assert dfa.simulate("ab")
+    assert not dfa.simulate("a")
+    assert not dfa.simulate("b")
 
-    # 4. Probar la simulación de algunas cadenas:
-    for cadena in ["", "a", "b", "ab", "aba", "abb", "aaaabbbb"]:
-        result = dfa.simulate(cadena)
-        print(f"Cadena '{cadena}': {'ACEPTADA' if result else 'RECHAZADA'}")
+def test_dfa_kleene(make_dfa):
+    dfa = make_dfa("a*#")
+    assert dfa.simulate("")    
+    assert dfa.simulate("aaaa")
+    assert not dfa.simulate("b")
+
+def test_dfa_union(make_dfa):
+    dfa = make_dfa("(a|b)#")
+    assert dfa.simulate("a")
+    assert dfa.simulate("b")
+    assert not dfa.simulate("ab")
