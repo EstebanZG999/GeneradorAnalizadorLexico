@@ -1,8 +1,8 @@
 # tests/test_dfa.py
 import pytest
-from models.regex_parser import RegexParser
-from models.syntax_tree import SyntaxTree
-from models.dfa import DFA
+from src.models.regex_parser import RegexParser
+from src.models.syntax_tree import SyntaxTree
+from src.models.dfa import DFA
 
 @pytest.fixture
 def make_dfa():
