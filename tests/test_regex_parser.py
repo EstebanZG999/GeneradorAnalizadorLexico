@@ -1,6 +1,6 @@
 # tests/test_regex_parser.py
 import pytest
-from models.regex_parser import RegexParser, Symbol
+from src.models.regex_parser import RegexParser, Symbol
 
 @pytest.mark.parametrize("pattern, expected_tokens, expected_postfix", [
     ("a|b#", ["a", "|", "b", ".", "#"],      ["a", "b", "#", ".", "|"]),

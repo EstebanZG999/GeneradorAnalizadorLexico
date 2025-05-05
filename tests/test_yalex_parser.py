@@ -1,6 +1,6 @@
 # tests/test_yalex_parser.py
 import pytest
-from models.yalex_parser import YALexParser
+from src.models.yalex_parser import YALexParser
 
 @pytest.fixture
 def yalex_parser():

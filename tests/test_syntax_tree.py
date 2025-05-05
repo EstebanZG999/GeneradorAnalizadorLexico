@@ -1,7 +1,7 @@
 # tests/test_syntax_tree.py
 import pytest
-from models.regex_parser import RegexParser
-from models.syntax_tree import SyntaxTree
+from src.models.regex_parser import RegexParser
+from src.models.syntax_tree import SyntaxTree
 
 @pytest.mark.parametrize("pattern, nullable, firstpos, lastpos", [
     ("a#",   False, {1},    {2}),       # 'a' luego '#'
