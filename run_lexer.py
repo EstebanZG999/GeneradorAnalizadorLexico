@@ -1,8 +1,9 @@
 import sys
 import os
 
-# Asegurarse de que el directorio raíz esté en el path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
+# Asegurarnos de que el directorio raíz y 'src' estén en el path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 from src.controllers.main_controller import generate_lexer, extend_dfa_with_match_prefix
 
