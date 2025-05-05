@@ -1,4 +1,4 @@
-# models/mindfa.py
+# src/models/mindfa.py
 
 import os
 from .dfa import DFA
@@ -19,11 +19,16 @@ def minimize_dfa(dfa: DFA) -> DFA:
 
     # 2) Crear la partición inicial: A = estados de aceptación, B = el resto
     # ---------------------------------------------------------------------
-    A = accepting_states
-    B = all_states - A
-    # P (partición) y W (conjunto de bloques a refinar)
-    P = [A, B] if B else [A]  # si B está vacío, no lo metemos
-    W = [A, B] if B else [A]
+    accepting = accepting_states
+    non_accepting = all_states - accepting
+
+    P = []
+    if accepting:
+        P.append(accepting)
+    if non_accepting:
+        P.append(non_accepting)
+
+    W = P.copy()
 
     # 3) Algoritmo de Hopcroft: refinamiento de bloques
     # -------------------------------------------------
