@@ -1,6 +1,7 @@
-# controllers/main_controller.py
+# src/controllers/main_controller.py
 
 import os
+import re
 import contextlib, io
 import textwrap
 from src.models.regex_parser import RegexParser
@@ -262,7 +263,13 @@ def generate_lexer():
         regex_str_clean = regex_str.lstrip("| ").strip()
         if not regex_str_clean:
             continue
-        expanded_regex = yalex_parser.expand_definitions(regex_str_clean)
+        raw = yalex_parser.expand_definitions(regex_str_clean)
+        raw = raw.replace("\n", "").strip()
+        expanded_regex = re.sub(
+            r"""\s+(?=(?:[^'"\[\]]|'[^']*'|"[^"]*"|\[[^\]]*\])*$)""",
+            "",
+            raw
+        )
         added_marker = False
         # Si no se encuentra el marcador terminal, se agrega de forma implícita.
         if '#' not in expanded_regex:
@@ -335,16 +342,16 @@ def generate_lexer():
         f.write("        rules = []\n")
         # Para cada regla, se genera el código que recrea el DFA (con la misma expresión expandida)
         for rule in rules:
-            f.write("        from models.regex_parser import RegexParser\n")
-            f.write("        from models.syntax_tree import SyntaxTree\n")
-            f.write("        from models.dfa import DFA\n")
+            f.write("        from src.models.regex_parser import RegexParser\n")
+            f.write("        from src.models.syntax_tree import SyntaxTree\n")
+            f.write("        from src.models.dfa import DFA\n")
             f.write(f"        # Regla: {rule['regex']}\n")
-            f.write(f"        parser = RegexParser(r'''{rule['regex']}''')\n")
+            f.write(f"        parser = RegexParser({rule['regex']!r})\n")
             f.write("        parser.tokenize()\n")
             f.write("        postfix = parser.to_postfix()\n")
             f.write("        syntax_tree = SyntaxTree(postfix)\n")
             f.write("        dfa = DFA(syntax_tree)\n")
-            f.write(f"        rules.append({{'regex': r'''{rule['regex']}''', 'action': r'''{rule['action']}''', 'dfa': dfa}})\n")
+            f.write(f"        rules.append({{'regex': {rule['regex']!r}, 'action': {rule['action']!r}, 'dfa': dfa}})\n")
         f.write("        return rules\n")
         f.write("\n")
         
