@@ -1,7 +1,7 @@
-# models/dfa.py
+# src/models/dfa.py
 import os
 import graphviz
-from models.syntax_tree import NodoHoja, NodoBinario, NodoUnario, SyntaxTree
+from src.models.syntax_tree import NodoHoja, NodoBinario, NodoUnario, SyntaxTree
 
 class DFA:
     def __init__(self, syntax_tree):
@@ -10,7 +10,7 @@ class DFA:
         self.followpos = self.compute_followpos(syntax_tree.raiz)
         self.pos_to_symbol = self.compute_pos_to_symbol(syntax_tree.raiz)
         # Definir el alfabeto (excluimos el marcador '#' de entrada)
-        self.alphabet = {symbol for pos, symbol in self.pos_to_symbol.items() if symbol != '#'}
+        self.alphabet = { sym for sym in self.pos_to_symbol.values() if sym != '#' }
         # Diccionario para almacenar los estados (clave: frozenset de posiciones, valor: ID del estado)
         self.states = {}
         # Tabla de transiciones: {estado_id: {símbolo: estado_id_destino}}
@@ -93,26 +93,33 @@ class DFA:
                         unmarked_states.append(u)
                     self.transitions[current_state_id][symbol] = self.states[u]
 
-            # Estados de aceptación
+        # Estados de aceptación: usa get() para evitar KeyError si falta alguna posición
+        for state_set, state_id in self.states.items():
+            if any(self.pos_to_symbol.get(pos) == '#' for pos in state_set):
+                self.accepting_states.add(state_id)
+        # Fallback: solo si aún no hay aceptadores Y hay posiciones definidas
+        if not self.accepting_states and self.pos_to_symbol:
+            max_pos = max(self.pos_to_symbol.keys())
             for state_set, state_id in self.states.items():
-                if any(self.pos_to_symbol[pos] == '#' for pos in state_set):
+                if max_pos in state_set:
                     self.accepting_states.add(state_id)
-            if not self.accepting_states:
-                max_pos = max(self.pos_to_symbol.keys())
-                for state_set, state_id in self.states.items():
-                    if max_pos in state_set:
-                        self.accepting_states.add(state_id)
+        
 
     def simulate(self, string):
-        """Simula el AFD con la cadena de entrada 'string'. Devuelve True si se acepta, False en caso contrario."""
-        current_state = self.initial_state
+        """
+        Simula el AFD con la cadena de entrada 'string'.
+        Retorna True si, tras procesar todos los caracteres,
+        el estado en que quedas está marcado como de aceptación.
+        """
+        current = self.initial_state
         for ch in string:
-            # Si no existe una transición para el símbolo, se rechaza la cadena.
-            if ch in self.transitions[current_state]:
-                current_state = self.transitions[current_state][ch]
-            else:
+            trans = self.transitions.get(current, {})
+            if ch not in trans:
                 return False
-        return current_state in self.accepting_states
+            current = trans[ch]
+        return current in self.accepting_states
+
+
 
     def print_dfa(self):
         """Imprime la tabla de transiciones y los estados de aceptación."""
@@ -159,6 +166,27 @@ class DFA:
         dot.render(output_path, view=False)
 
         print(f"Imagen del DFA guardada en: {output_path}.png")
+
+    def match_prefix(self, input_str):
+        """
+        Returns the length of the longest prefix (including the implicit '#')
+        that lands in an accepting state.
+        """
+        current_state = self.initial_state
+        last_accept_pos = -1
+        pos = 0
+        # scan all chars _and_ the trailing '#'
+        for ch in input_str + '#':
+            trans = self.transitions.get(current_state, {})
+            if ch in trans:
+                current_state = trans[ch]
+                pos += 1
+                if current_state in self.accepting_states:
+                    last_accept_pos = pos
+            else:
+                break
+        # if we never hit an accepting state, return 0
+        return last_accept_pos if last_accept_pos != -1 else 0
 
  
  
