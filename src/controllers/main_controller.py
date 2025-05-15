@@ -123,24 +123,30 @@ setattr(DFA, "match_prefix_and_token", match_prefix_and_token)
 def extend_dfa_with_match_prefix():
     """
     Agrega a la clase DFA el método match_prefix, que recorre el input
-    carácter a carácter y retorna la longitud del mayor prefijo aceptado.
+    carácter a carácter (más un '#' al final) y retorna la longitud del
+    mayor prefijo aceptado (sin contar ese '#').
     """
     def match_prefix(self, input_str):
         current_state = self.initial_state
         last_accept_pos = -1
-        pos = 0
-        for ch in input_str:
-            if ch in self.transitions.get(current_state, {}):
-                current_state = self.transitions[current_state][ch]
-                pos += 1
-                if current_state in self.accepting_states:
-                    last_accept_pos = pos
-            else:
+        # Escaneamos los caracteres reales más un '#' al final
+        stream = input_str + '#'
+        for i, ch in enumerate(stream):
+            trans = self.transitions.get(current_state, {})
+            if ch not in trans:
                 break
-        if last_accept_pos != -1:
-            return last_accept_pos
-        return 0
+            current_state = trans[ch]
+            # Si es estado aceptador, guardamos la posición
+            if current_state in self.accepting_states:
+                last_accept_pos = i
+        # last_accept_pos == índice en stream donde fue aceptado;
+        # como en stream aparece '#' en la última posición válida,
+        # y queremos la longitud sobre input_str, devolvemos last_accept_pos
+        # sólo si es ≥ 0 y menor que len(input_str)+1
+        return last_accept_pos if last_accept_pos >= 0 else 0
+
     setattr(DFA, "match_prefix", match_prefix)
+
 
 def test_full_pipeline(input_file):
     """
@@ -298,8 +304,9 @@ def generate_lexer():
     with open(output_filename, "w", encoding="utf-8") as f:
         # Escribir header (el código extraído del archivo YALex)
         f.write("# Código generado automáticamente por YALex\n")
-        # header = "\n".join(line.lstrip() for line in yalex_parser.header_code.splitlines())
-        # f.write(header + "\n\n")
+        header = "\n".join(line.lstrip() for line in yalex_parser.header_code.splitlines())
+        if header:
+            f.write(header + "\n\n")
 
         # Definir la clase Lexer
         f.write("class Lexer:\n")
@@ -329,7 +336,7 @@ def generate_lexer():
         f.write("                    lexeme = lexeme[:-1]\n")
         f.write("                local_env = {'lexeme': lexeme, 'text': text}\n")
         f.write("                action_code = selected_rule['action'].replace('return', 'token =')\n")
-        f.write("                exec(action_code, {}, local_env)\n")
+        f.write("                exec(action_code, globals(), local_env)\n")
         f.write("                token = local_env.get('token', None)\n")
         f.write("                if token is not None:\n")
         f.write("                   tokens.append(token)\n")

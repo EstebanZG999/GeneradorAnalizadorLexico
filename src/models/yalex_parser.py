@@ -15,6 +15,8 @@ class YALexParser:
         with open(self.filename, 'r', encoding='utf-8') as f:
             content = f.read()
 
+        content = re.sub(r'\(\*.*?\*\)', '', content, flags=re.DOTALL)
+
         # 1. Extraer {header} (asumiendo que el header es el primer bloque entre { })
         header_match = re.search(r'^\s*\{(.*?)\}', content, re.DOTALL)
         if header_match:
@@ -50,8 +52,23 @@ class YALexParser:
         if trailer_match:
             self.trailer_code = trailer_match.group(1).strip()
 
+
     def expand_definitions(self, regex_str):
-        # Reemplaza en regex_str cada identificador definido en self.definitions
-        for ident, definition in self.definitions.items():
-            regex_str = re.sub(r'\b' + re.escape(ident) + r'\b', f'({definition})', regex_str)
+        """
+        Sustituye cada identificador por su definición hasta que
+        no queden más nombres de definiciones en la cadena.
+        """
+        # Repetimos hasta que no haya ningún cambio
+        while True:
+            new_regex = regex_str
+            for ident, definition in self.definitions.items():
+                # \b para que reemplace solo el nombre completo
+                new_regex = re.sub(
+                    r'\b' + re.escape(ident) + r'\b',
+                    f'({definition})',
+                    new_regex
+                )
+            if new_regex == regex_str:
+                break
+            regex_str = new_regex
         return regex_str

@@ -1,4 +1,6 @@
 # Código generado automáticamente por YALex
+from src.runtime.token_types import *
+
 class Lexer:
     def __init__(self, input_text):
         self.input_text = input_text
@@ -25,7 +27,7 @@ class Lexer:
                     lexeme = lexeme[:-1]
                 local_env = {'lexeme': lexeme, 'text': text}
                 action_code = selected_rule['action'].replace('return', 'token =')
-                exec(action_code, {}, local_env)
+                exec(action_code, globals(), local_env)
                 token = local_env.get('token', None)
                 if token is not None:
                    tokens.append(token)
@@ -38,112 +40,152 @@ class Lexer:
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
-        # Regla: ([A-Za-z]) (([A-Za-z]) | ([0-9]))+#
-        parser = RegexParser(r'''([A-Za-z]) (([A-Za-z]) | ([0-9]))+#''')
+        # Regla: (([' ' '	' ''])+)#
+        parser = RegexParser("(([' ' '\t' ''])+)#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r'''([A-Za-z]) (([A-Za-z]) | ([0-9]))+#''', 'action': r'''return ("WORD", lexeme)''', 'dfa': dfa})
+        rules.append({'regex': "(([' ' '\t' ''])+)#", 'action': '/* se ignora */', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
-        # Regla: ([A-Za-z])#
-        parser = RegexParser(r'''([A-Za-z])#''')
+        # Regla: ((['A'-'Z''a'-'z'])(((['A'-'Z''a'-'z'])|(['0'-'9'])))*)#
+        parser = RegexParser("((['A'-'Z''a'-'z'])(((['A'-'Z''a'-'z'])|(['0'-'9'])))*)#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r'''([A-Za-z])#''', 'action': r'''return ("LETTER", lexeme)''', 'dfa': dfa})
+        rules.append({'regex': "((['A'-'Z''a'-'z'])(((['A'-'Z''a'-'z'])|(['0'-'9'])))*)#", 'action': 'return ID', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
-        # Regla: [' ' '\t']#
-        parser = RegexParser(r'''[' ' '\t']#''')
+        # Regla: ((['0'-'9'])+('.'(['0'-'9'])+)?('E'['+' '-' ]?(['0'-'9'])+)?)#
+        parser = RegexParser("((['0'-'9'])+('.'(['0'-'9'])+)?('E'['+' '-' ]?(['0'-'9'])+)?)#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r'''[' ' '\t']#''', 'action': r'''return None''', 'dfa': dfa})
+        rules.append({'regex': "((['0'-'9'])+('.'(['0'-'9'])+)?('E'['+' '-' ]?(['0'-'9'])+)?)#", 'action': 'return NUMBER', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
-        # Regla: ([0-9])+#
-        parser = RegexParser(r'''([0-9])+#''')
+        # Regla: ';'#
+        parser = RegexParser("';'#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r'''([0-9])+#''', 'action': r'''return ("NUMBER", int(lexeme))''', 'dfa': dfa})
+        rules.append({'regex': "';'#", 'action': 'return SEMICOLON', 'dfa': dfa})
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
+        # Regla: ":="#
+        parser = RegexParser('":="#')
+        parser.tokenize()
+        postfix = parser.to_postfix()
+        syntax_tree = SyntaxTree(postfix)
+        dfa = DFA(syntax_tree)
+        rules.append({'regex': '":="#', 'action': 'return ASSIGNOP', 'dfa': dfa})
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
+        # Regla: '<'#
+        parser = RegexParser("'<'#")
+        parser.tokenize()
+        postfix = parser.to_postfix()
+        syntax_tree = SyntaxTree(postfix)
+        dfa = DFA(syntax_tree)
+        rules.append({'regex': "'<'#", 'action': 'return LT', 'dfa': dfa})
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
+        # Regla: '='#
+        parser = RegexParser("'='#")
+        parser.tokenize()
+        postfix = parser.to_postfix()
+        syntax_tree = SyntaxTree(postfix)
+        dfa = DFA(syntax_tree)
+        rules.append({'regex': "'='#", 'action': 'return EQ', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
         # Regla: '+'#
-        parser = RegexParser(r''''+'#''')
+        parser = RegexParser("'+'#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r''''+'#''', 'action': r'''return ("PLUS", "+")''', 'dfa': dfa})
+        rules.append({'regex': "'+'#", 'action': 'return PLUS', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
         # Regla: '-'#
-        parser = RegexParser(r''''-'#''')
+        parser = RegexParser("'-'#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r''''-'#''', 'action': r'''return ("MINUS", "-")''', 'dfa': dfa})
+        rules.append({'regex': "'-'#", 'action': 'return MINUS', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
         # Regla: '*'#
-        parser = RegexParser(r''''*'#''')
+        parser = RegexParser("'*'#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r''''*'#''', 'action': r'''return ("TIMES", "*")''', 'dfa': dfa})
+        rules.append({'regex': "'*'#", 'action': 'return TIMES', 'dfa': dfa})
+        from src.models.regex_parser import RegexParser
+        from src.models.syntax_tree import SyntaxTree
+        from src.models.dfa import DFA
+        # Regla: '/'#
+        parser = RegexParser("'/'#")
+        parser.tokenize()
+        postfix = parser.to_postfix()
+        syntax_tree = SyntaxTree(postfix)
+        dfa = DFA(syntax_tree)
+        rules.append({'regex': "'/'#", 'action': 'return DIV', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
         # Regla: '('#
-        parser = RegexParser(r''''('#''')
+        parser = RegexParser("'('#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r''''('#''', 'action': r'''return ("LPAREN", "(")''', 'dfa': dfa})
+        rules.append({'regex': "'('#", 'action': 'return LPAREN', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
         # Regla: ')'#
-        parser = RegexParser(r'''')'#''')
+        parser = RegexParser("')'#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r'''')'#''', 'action': r'''return ("RPAREN", ")")''', 'dfa': dfa})
+        rules.append({'regex': "')'#", 'action': 'return RPAREN', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
         # Regla: eof#
-        parser = RegexParser(r'''eof#''')
+        parser = RegexParser('eof#')
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r'''eof#''', 'action': r'''return ("EOF", None)''', 'dfa': dfa})
+        rules.append({'regex': 'eof#', 'action': 'return EOF', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
         # Regla: '\n'#
-        parser = RegexParser(r''''\n'#''')
+        parser = RegexParser("'\\n'#")
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': r''''\n'#''', 'action': r'''return ("EOL", None)''', 'dfa': dfa})
+        rules.append({'regex': "'\\n'#", 'action': 'return EOL', 'dfa': dfa})
         return rules
 

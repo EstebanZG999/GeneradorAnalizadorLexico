@@ -15,8 +15,8 @@ class Symbol:
         return self.value 
 
 class RegexParser:
-    OPERATORS = {'|', '.', '*', '+'} 
-    PRECEDENCE = {'|': 1, '.': 2, '*': 3, '+': 3} 
+    OPERATORS  = {'|', '.', '*', '+', '?'}
+    PRECEDENCE = {'|': 1, '.': 2, '*': 3, '+': 3, '?': 3}
 
     def __init__(self, regex):
         self.regex = regex
@@ -29,7 +29,7 @@ class RegexParser:
         if last_token is None:
             return False
         if last_token.is_operator:
-            if last_token.value not in {')', '*', '+'}:
+            if last_token.value not in {')', '*', '+', '?'}:
                 return False
         # Si el token actual es literal o el inicio de un grupo, se concatena.
         if current_token_type in ['literal', 'group_start']:
@@ -52,47 +52,50 @@ class RegexParser:
     
     def parse_bracket_expression(self, bracket_content):
         """
-        Dado el contenido dentro de [ ], genera una lista de tokens equivalente
+        Dado el contenido dentro de [ ], genera una lista de tokens equivalente.
+        Primero limpiamos las comillas y espacios para quedarnos solo con los
+        caracteres puros (sin ' ni " ni espacios), luego expandimos rangos X–Y
+        solo cuando ambos sean alfanuméricos.
         """
-        i = 0
-        elements = []  # guardará listas de caracteres
+        # 1) Limpieza inicial: quitar comillas simples, dobles y espacios
+        raw = bracket_content.replace("'", "").replace('"', "").replace(" ", "")
         
-        while i < len(bracket_content):
-            # Verificamos si hay patrón X-Y
-            if i+2 < len(bracket_content) and bracket_content[i+1] == '-':
-                # Tenemos un patrón X-Y
-                c1 = bracket_content[i]
-                c2 = bracket_content[i+2]
-                expanded_chars = self.expand_range(c1, c2)
-                elements.append(expanded_chars)
-                i += 3  # saltamos X-Y
+        elements = []
+        i = 0
+        # 2) Construir bloques de caracteres o rangos
+        while i < len(raw):
+            # rango c1-c2, pero solo si ambos son alfanuméricos
+            if (i + 2 < len(raw)
+                and raw[i+1] == '-'
+                and raw[i].isalnum()
+                and raw[i+2].isalnum()):
+                c1, c2 = raw[i], raw[i+2]
+                elements.append(self.expand_range(c1, c2))
+                i += 3
             else:
-                # Es un carácter suelto
-                elements.append([bracket_content[i]])
+                # carácter suelto
+                elements.append([raw[i]])
                 i += 1
 
+        # 3) Convertir cada bloque de caracteres en una subexpresión con '|'
         all_chars = []
         for idx, block in enumerate(elements):
-            # block es lista de caracteres expandidos
-            if not block:
-                continue
-            # Insertar los caracteres de 'block' separados por '|'
             for j, c in enumerate(block):
-                # Añadimos el carácter como literal
                 all_chars.append(Symbol(c, is_operator=False))
-                # Si no es el último carácter de este bloque, ponemos '|'
+                # si no es el último de este bloque, añadir '|'
                 if j < len(block) - 1:
                     all_chars.append(Symbol('|', is_operator=True))
-            # Si no es el último bloque, añadimos otro OR
+            # si no es el último bloque, añadir otro '|'
             if idx < len(elements) - 1:
                 all_chars.append(Symbol('|', is_operator=True))
 
-        final_tokens = []
-        final_tokens.append(Symbol('(', is_operator=True))
+        # 4) Encapsular en paréntesis para obtener un solo token de grupo
+        final_tokens = [Symbol('(', is_operator=True)]
         final_tokens.extend(all_chars)
         final_tokens.append(Symbol(')', is_operator=True))
-        
+
         return final_tokens
+
 
     
     def tokenize(self):
@@ -167,42 +170,51 @@ class RegexParser:
                 output.append(token)
                 last_token = token
                 continue
-            elif char.isalnum() or char == '#'or char == '$':  # Simbolo o marcador de fin
-                # Inserta concatenación si no es el último
+
+            # (bloque de corchetes, literales entre comillas, alfanuméricos, operadores y paréntesis)
+            # —––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+            elif char.isalnum() or char in {'#', '$'}:
+                # Igual que antes
                 if self.should_concat(last_token, 'literal'):
                     output.append(Symbol('.', is_operator=True))
                 token = Symbol(char, is_operator=False)
                 output.append(token)
                 last_token = token
                 continue
+
             elif char in self.OPERATORS:
                 token = Symbol(char, is_operator=True)
                 output.append(token)
-                if char == '|':
-                    last_token = None
-                else:
-                    last_token = token
+                last_token = None if char == '|' else token
                 continue
+
             elif char == '(':
                 if self.should_concat(last_token, 'group_start'):
                     output.append(Symbol('.', is_operator=True))
-                token = Symbol('(', is_operator=True)
-                output.append(token)
+                output.append(Symbol('(', is_operator=True))
                 last_token = None
                 continue
+
             elif char == ')':
                 output.append(Symbol(')', is_operator=True))
                 last_token = Symbol(')', is_operator=True)
                 continue
-            elif char.isspace():
-                continue
-            elif ord(char) >= 128:
+
+            # —––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+            # **NUEVO**: tratar cualquier otro carácter (ej. ':', ';', '<', '=', etc.) como literal
+            elif char not in self.OPERATORS and char not in {'(', ')', '[', ']', '{', '}', '\\', '|'} and not char.isspace():
                 if self.should_concat(last_token, 'literal'):
                     output.append(Symbol('.', is_operator=True))
                 token = Symbol(char, is_operator=False)
                 output.append(token)
                 last_token = token
                 continue
+
+            # Espacios en blanco los ignoramos
+            elif char.isspace():
+                continue
+
+            # Si nada hizo `continue` antes, es un caracter inválido
             raise ValueError(f"Carácter no reconocido: {char}")
 
         if escaped:
@@ -232,7 +244,7 @@ class RegexParser:
                        self.PRECEDENCE[token.value] <= self.PRECEDENCE[stack[-1].value]):
                     output.append(stack.pop())
                 stack.append(token)
-            elif token.value in {'*', '+'}:  # operadores unarios
+            elif token.value in {'*', '+', '?'}:  # operadores unarios
                 output.append(token)
             else:
                 stack.append(token)

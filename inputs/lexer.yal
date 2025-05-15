@@ -1,21 +1,38 @@
+(* Gramática *)
+
+(* --- Header: código que se copia al inicio del .py generado --- *)
 { 
-  # Código de header
-  import myToken
+  from src.runtime.token_types import *
 }
-let DIGIT = [0-9]
-let LETTER = [A-Za-z]
-rule gettoken =
-    | LETTER (LETTER | DIGIT)* { return ("WORD", lexeme) }
-    | LETTER { return ("LETTER", lexeme) }
-    | [' ' '\t'] { return None }
-    | DIGIT+ { return ("NUMBER", int(lexeme)) }
-    | '+'    { return ("PLUS", "+") }
-    | '-'    { return ("MINUS", "-") }
-    | '*'    { return ("TIMES", "*") }
-    | '('    { return ("LPAREN", "(") }
-    | ')'    { return ("RPAREN", ")") }
-    | eof    { return ("EOF", None) }
-    | '\n' { return ("EOL", None) }
+
+(* --- Definiciones de clases de caracteres --- *)
+let delim   = [' ' '\t' '\n']
+let ws      = delim+
+let letter  = ['A'-'Z''a'-'z']
+let digit   = ['0'-'9']
+let alnum   = letter | digit
+let id      = letter (alnum)*
+let number  = digit+ ('.' digit+)? ('E' ['+' '-' ]? digit+ )?
+
+(* --- Reglas de tokenización --- *)
+rule tokens =
+    ws                          { /* se ignora */ }
+  | id                          { return ID }
+  | number                      { return NUMBER }
+  | ';'                         { return SEMICOLON }
+  | ":="                        { return ASSIGNOP }
+  | '<'                         { return LT }
+  | '='                         { return EQ }
+  | '+'                         { return PLUS }
+  | '-'                         { return MINUS }
+  | '*'                         { return TIMES }
+  | '/'                         { return DIV }
+  | '('                         { return LPAREN }
+  | ')'                         { return RPAREN }
+  | eof                         { return EOF }
+  | '\n'                        { return EOL }
+
+(* --- Trailer: código que se copia al final del .py generado --- *)
 { 
-  # Código de trailer 
+  /* Aquí podrías añadir cualquier cleanup o funciones auxiliares */
 }

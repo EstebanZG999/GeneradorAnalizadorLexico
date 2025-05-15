@@ -1,4 +1,4 @@
-# models/syntax_parser.py
+# models/syntax_tree.py
 
 import os
 import graphviz
@@ -117,6 +117,13 @@ class SyntaxTree:
                 derecho = stack.pop()
                 izquierdo = stack.pop()
                 stack.append(NodoBinario(token.value, izquierdo, derecho))
+            elif token.value == '?':  # Operador unario de "cero o una"
+                nodo = stack.pop()                      # A
+                # lo convertimos en (A | ε)
+                hoja_epsilon = NodoHoja('ε', self.posicion_actual); self.posicion_actual += 1
+                altern = NodoBinario('|', nodo, hoja_epsilon)
+                stack.append(altern)
+
         # El último nodo en el stack es la raíz
 
         return stack.pop()
