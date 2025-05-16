@@ -57,44 +57,43 @@ class RegexParser:
         caracteres puros (sin ' ni " ni espacios), luego expandimos rangos X–Y
         solo cuando ambos sean alfanuméricos.
         """
-        # 1) Limpieza inicial: quitar comillas simples, dobles y espacios
-        raw = bracket_content.replace("'", "").replace('"', "").replace(" ", "")
+        # 1) Primero, decodificamos cualquier \n, \t, \\uXXXX, etc.
+        decoded = bytes(bracket_content, "utf-8").decode("unicode_escape")
+        # 2) Ahora removemos las comillas simples o dobles y espacios sobrantes
+        clean = decoded.replace("'", "").replace('"', "")
         
-        elements = []
+        # 3) Recogemos cada carácter literal o rango a–b
+        chars = []
         i = 0
-        # 2) Construir bloques de caracteres o rangos
-        while i < len(raw):
-            # rango c1-c2, pero solo si ambos son alfanuméricos
-            if (i + 2 < len(raw)
-                and raw[i+1] == '-'
-                and raw[i].isalnum()
-                and raw[i+2].isalnum()):
-                c1, c2 = raw[i], raw[i+2]
-                elements.append(self.expand_range(c1, c2))
+        while i < len(clean):
+            c = clean[i]
+            # caso rango: a-b
+            if i + 2 < len(clean) and clean[i+1] == "-" and clean[i].isalnum() and clean[i+2].isalnum():
+                a, b = clean[i], clean[i+2]
+                start, end = ord(a), ord(b)
+                if start > end: start, end = end, start
+                for code in range(start, end+1):
+                    chars.append(chr(code))
                 i += 3
             else:
                 # carácter suelto
-                elements.append([raw[i]])
+                chars.append(c)
                 i += 1
-
-        # 3) Convertir cada bloque de caracteres en una subexpresión con '|'
-        all_chars = []
-        for idx, block in enumerate(elements):
-            for j, c in enumerate(block):
-                all_chars.append(Symbol(c, is_operator=False))
-                # si no es el último de este bloque, añadir '|'
-                if j < len(block) - 1:
-                    all_chars.append(Symbol('|', is_operator=True))
-            # si no es el último bloque, añadir otro '|'
-            if idx < len(elements) - 1:
-                all_chars.append(Symbol('|', is_operator=True))
-
-        # 4) Encapsular en paréntesis para obtener un solo token de grupo
-        final_tokens = [Symbol('(', is_operator=True)]
-        final_tokens.extend(all_chars)
-        final_tokens.append(Symbol(')', is_operator=True))
-
-        return final_tokens
+        
+        # 4) Eliminamos duplicados y ordenamos (opcional)
+        unique = []
+        for c in chars:
+            if c not in unique:
+                unique.append(c)
+        
+        # 5) Convertimos a tokens: ( c1 | c2 | ... cn )
+        tokens = [Symbol("(", is_operator=True)]
+        for idx, c in enumerate(unique):
+            tokens.append(Symbol(c, is_operator=False))
+            if idx < len(unique)-1:
+                tokens.append(Symbol("|", is_operator=True))
+        tokens.append(Symbol(")", is_operator=True))
+        return tokens
 
 
     
@@ -137,7 +136,9 @@ class RegexParser:
                 if not found_closing:
                     raise ValueError("Falta ']' de cierre en la expresión regular.")
                 
-                bracket_content = self.regex[i+1 : j]  # extraemos todo lo que hay dentro de [ ]
+                raw = self.regex[i+1 : j]
+                # decodifica '\n', '\t', '\u1234', etc.
+                bracket_content = bytes(raw, "utf-8").decode("unicode_escape")
                 
                 # Expandimos a un grupo de tokens
                 bracket_tokens = self.parse_bracket_expression(bracket_content)
@@ -201,7 +202,7 @@ class RegexParser:
                 continue
 
             # —––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-            # **NUEVO**: tratar cualquier otro carácter (ej. ':', ';', '<', '=', etc.) como literal
+            # tratar cualquier otro carácter (ej. ':', ';', '<', '=', etc.) como literal
             elif char not in self.OPERATORS and char not in {'(', ')', '[', ']', '{', '}', '\\', '|'} and not char.isspace():
                 if self.should_concat(last_token, 'literal'):
                     output.append(Symbol('.', is_operator=True))

@@ -13,10 +13,11 @@ let digit   = ['0'-'9']
 let alnum   = letter | digit
 let id      = letter (alnum)*
 let number  = digit+ ('.' digit+)? ('E' ['+' '-' ]? digit+ )?
+let delim = [' ' '\t' '\n']  
 
 (* --- Reglas de tokenización --- *)
 rule tokens =
-    ws                          { /* se ignora */ }
+    ws                          { return None }
   | id                          { return ID }
   | number                      { return NUMBER }
   | ';'                         { return SEMICOLON }
@@ -31,6 +32,8 @@ rule tokens =
   | ')'                         { return RPAREN }
   | eof                         { return EOF }
   | '\n'                        { return EOL }
+  | ';' { … }  
+  | ":=" { … }  
 
 (* --- Trailer: código que se copia al final del .py generado --- *)
 { 

@@ -39,6 +39,8 @@ def generate_global_dfa():
         
         # Expandir definiciones
         expanded_regex = yalex_parser.expand_definitions(regex_clean)
+        if not expanded_regex.endswith('#'):
+           expanded_regex += '#'
         # Elimina saltos de línea y espacios extra de la expresión expandida
         expanded_regex = expanded_regex.replace("\n", "").strip()
         # Remover el marcador terminal '#' si existe
@@ -60,8 +62,9 @@ def generate_global_dfa():
     global_regex = "|".join(f"({r})" for r in global_rules)
     print("Expresión global generada:", global_regex)
     
-    # (Opcional) Remueve cualquier salto de línea que pueda quedar en la expresión global
-    global_regex = global_regex.replace("\n", "").replace("\r", "").strip()
+    
+    # Remueve cualquier salto de línea que pueda quedar en la expresión global —> Comentado para no romper literales \n, \t dentro de []
+    # global_regex = global_regex.replace("\n", "").replace("\r", "").strip()
     print("Expresión global generada (repr):", repr(global_regex))
     
     # Procesar la expresión global: tokenizar, convertir a postfix, construir árbol y DFA
@@ -277,10 +280,6 @@ def generate_lexer():
             raw
         )
         added_marker = False
-        # Si no se encuentra el marcador terminal, se agrega de forma implícita.
-        if '#' not in expanded_regex:
-            expanded_regex = expanded_regex + '#'
-            added_marker = True
         with contextlib.redirect_stdout(io.StringIO()):
             print(f"Regla {idx+1} expandida: {expanded_regex}")
         # Construir el DFA para la regla
@@ -331,9 +330,6 @@ def generate_lexer():
         f.write("                pos += 1\n")
         f.write("            else:\n")
         f.write("                lexeme = text[pos:pos+longest_match]\n")
-        # Si el lexema termina en '#' (marcador agregado), se quita esa última posición
-        f.write("                if lexeme.endswith('#'):\n")
-        f.write("                    lexeme = lexeme[:-1]\n")
         f.write("                local_env = {'lexeme': lexeme, 'text': text}\n")
         f.write("                action_code = selected_rule['action'].replace('return', 'token =')\n")
         f.write("                exec(action_code, globals(), local_env)\n")

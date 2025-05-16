@@ -38,13 +38,12 @@ class YALexParser:
             raw_rules = re.findall(r'(.*?)\{(.*?)\}', rules_content, re.DOTALL)
             filtered_rules = []
             for regex_part, action_part in raw_rules:
-                # Quitamos espacios extremos
-                regex_clean = regex_part.strip()
-                # Si empieza con '|' lo removemos (pero solo esa marca, sin afectar el resto)
-                if regex_clean.startswith('|'):
-                    regex_clean = regex_clean[1:].strip()
-                if regex_clean:  # Solo agregamos si no está vacía
-                    filtered_rules.append((regex_clean, action_part.strip()))
+                # 1) elimina cualquier /* … */ (multilínea)
+                action_clean = re.sub(r'/\*.*?\*/', '', action_part, flags=re.DOTALL).strip()
+                # 2) si queda vacío, ponemos un pass (Python válido)
+                if not action_clean:
+                    action_clean = 'pass'
+                filtered_rules.append((regex_part.strip(), action_clean))
             self.rules = filtered_rules
 
         # 4. Extraer {trailer} (si existe, asumimos que es el último bloque entre { } al final)
