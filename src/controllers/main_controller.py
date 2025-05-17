@@ -134,7 +134,7 @@ def extend_dfa_with_match_prefix():
         last_accept_pos = -1
         # Escaneamos los caracteres reales más un '#' al final
         stream = input_str + '#'
-        for i, ch in enumerate(stream):
+        for i, ch in enumerate(stream, start=1):
             trans = self.transitions.get(current_state, {})
             if ch not in trans:
                 break
@@ -146,7 +146,7 @@ def extend_dfa_with_match_prefix():
         # como en stream aparece '#' en la última posición válida,
         # y queremos la longitud sobre input_str, devolvemos last_accept_pos
         # sólo si es ≥ 0 y menor que len(input_str)+1
-        return last_accept_pos if last_accept_pos >= 0 else 0
+        return last_accept_pos
 
     setattr(DFA, "match_prefix", match_prefix)
 
@@ -286,10 +286,12 @@ def generate_lexer():
         r_parser.tokenize()
         postfix = r_parser.to_postfix()
         # (Debug opcional, envuelto en --verbose)
+        """
         print(f"\n--- DEBUG Regla {idx+1} ---")
         print(" regex raw:     ", repr(expanded_regex))
         print(" tokens:        ", [str(t) for t in r_parser.tokens])
         print(" postfix:       ", [str(t) for t in postfix])
+        """
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         with contextlib.redirect_stdout(io.StringIO()):
@@ -339,7 +341,8 @@ def generate_lexer():
         f.write("                exec(action_code, globals(), local_env)\n")
         f.write("                token = local_env.get('token', None)\n")
         f.write("                if token is not None:\n")
-        f.write("                   tokens.append(token)\n")
+        f.write("                   tokens.append((token, lexeme))\n")
+        f.write("                print(f'⟶ Token: {token!r}, lexema: {lexeme!r}')\n")
         f.write("                pos += longest_match\n")
         f.write("        return tokens\n")
         f.write("\n")
@@ -353,7 +356,7 @@ def generate_lexer():
             f.write("        from src.models.syntax_tree import SyntaxTree\n")
             f.write("        from src.models.dfa import DFA\n")
             f.write(f"        # Regla: {rule['regex']}\n")
-            f.write(f"        parser = RegexParser({rule['regex']!r})\n")
+            f.write(f"        parser = RegexParser({rule['regex']!r} + '#')\n")
             f.write("        parser.tokenize()\n")
             f.write("        postfix = parser.to_postfix()\n")
             f.write("        syntax_tree = SyntaxTree(postfix)\n")

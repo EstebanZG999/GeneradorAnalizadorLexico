@@ -124,6 +124,16 @@ class RegexParser:
                 escaped = False
                 continue
 
+            if char == '.':
+                # si hacía falta concatenar, inyectamos explicitamente CONCAT (el “punto” interno)
+                if self.should_concat(last_token, 'literal'):
+                    output.append(Symbol('.', is_operator=True))
+                # ahora metemos el '.' como literal comodín
+                token = Symbol('.', is_operator=False)
+                output.append(token)
+                last_token = token
+                continue
+
             elif char == '\\':
                 # si hay un carácter tras la barra, lo consumimos como escape
                 if i + 1 < len(self.regex):
@@ -234,17 +244,6 @@ class RegexParser:
 
             # Ignorar espacios
             if char.isspace():
-                continue
-
-            # Wildcard: punto quiere decir “cualquier carácter”
-            if char == '.':
-                # Insertar concat si hace falta
-                if self.should_concat(last_token, 'literal'):
-                    output.append(Symbol('.', is_operator=True))
-                # Lo tratamos como literal wildcard (no es concat)
-                token = Symbol('.', is_operator=False)
-                output.append(token)
-                last_token = token
                 continue
 
             # Si nada hizo `continue` antes, es un caracter inválido

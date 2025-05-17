@@ -35,9 +35,9 @@ rule tokens =
   | '='                         { return ('EQ',       lexeme) }
   | '>'                         { return ('GT',       lexeme) }
   | eof                         { return EOF }
-  | .                           { return ('SYMBOL',  lexeme) }
+  | .                           { return ('SYMBOL', lexeme) }
 
 (* --- Trailer: código que se copia al final del .py generado --- *)
 { 
-  /* Aquí podrías añadir cualquier cleanup o funciones auxiliares */
+  /* añadir cualquier cleanup o funciones auxiliares */
 }
