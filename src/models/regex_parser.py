@@ -1,4 +1,4 @@
-# models/regex_parser.py
+# src/models/regex_parser.py
 
 import re
 from collections import deque
@@ -15,7 +15,7 @@ class Symbol:
         return self.value 
 
 class RegexParser:
-    OPERATORS  = {'|', '.', '*', '+', '?'}
+    OPERATORS  = {'|', '*', '+', '?'}
     PRECEDENCE = {'|': 1, '.': 2, '*': 3, '+': 3, '?': 3}
 
     def __init__(self, regex):
@@ -86,6 +86,10 @@ class RegexParser:
             if c not in unique:
                 unique.append(c)
         
+        # Si la clase tiene solo un símbolo, lo devolvemos como literal
+        if len(unique) == 1:
+            return [ Symbol(unique[0], is_operator=False) ]
+
         # 5) Convertimos a tokens: ( c1 | c2 | ... cn )
         tokens = [Symbol("(", is_operator=True)]
         for idx, c in enumerate(unique):
@@ -119,9 +123,22 @@ class RegexParser:
                 last_token = token
                 escaped = False
                 continue
+
             elif char == '\\':
-                escaped = True
-                continue
+                # si hay un carácter tras la barra, lo consumimos como escape
+                if i + 1 < len(self.regex):
+                    esc_char = self.regex[i+1]
+                    token_value = bytes(f"\\{esc_char}", "utf-8").decode("unicode_escape")
+                    if self.should_concat(last_token, 'literal'):
+                        output.append(Symbol('.', is_operator=True))
+                    token = Symbol(token_value, is_operator=False)
+                    output.append(token)
+                    last_token = token
+                    # avanzamos un paso extra para saltarnos el carácter escapado
+                    skip_until = i + 2
+                    continue
+                else:
+                    raise ValueError("Escape final sin carácter tras '\\'.")
 
             # Detectar '['
             elif char == '[':
@@ -144,7 +161,7 @@ class RegexParser:
                 bracket_tokens = self.parse_bracket_expression(bracket_content)
             
                 # Verificamos si hace falta concatenar
-                if self.should_concat(last_token, 'literal'):
+                if self.should_concat(last_token, 'group_start'):
                     output.append(Symbol('.', is_operator=True))
                 
                 output.extend(bracket_tokens)
@@ -152,6 +169,7 @@ class RegexParser:
 
                 skip_until = j + 1
                 continue
+
             elif char == "'" or char == '"':
                 # Procesar literal entre comillas.
                 quote_char = char
@@ -203,7 +221,10 @@ class RegexParser:
 
             # —––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
             # tratar cualquier otro carácter (ej. ':', ';', '<', '=', etc.) como literal
-            elif char not in self.OPERATORS and char not in {'(', ')', '[', ']', '{', '}', '\\', '|'} and not char.isspace():
+            elif char not in self.OPERATORS \
+                 and char not in {'(',')','[',']','{','}','|'} \
+                 and not char.isspace():
+                # puntos, comas, dos puntos, etc.
                 if self.should_concat(last_token, 'literal'):
                     output.append(Symbol('.', is_operator=True))
                 token = Symbol(char, is_operator=False)
@@ -211,8 +232,19 @@ class RegexParser:
                 last_token = token
                 continue
 
-            # Espacios en blanco los ignoramos
-            elif char.isspace():
+            # Ignorar espacios
+            if char.isspace():
+                continue
+
+            # Wildcard: punto quiere decir “cualquier carácter”
+            if char == '.':
+                # Insertar concat si hace falta
+                if self.should_concat(last_token, 'literal'):
+                    output.append(Symbol('.', is_operator=True))
+                # Lo tratamos como literal wildcard (no es concat)
+                token = Symbol('.', is_operator=False)
+                output.append(token)
+                last_token = token
                 continue
 
             # Si nada hizo `continue` antes, es un caracter inválido

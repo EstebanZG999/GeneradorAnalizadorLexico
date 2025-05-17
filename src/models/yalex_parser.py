@@ -1,4 +1,4 @@
-# models/yalex_parser.py
+# src/models/yalex_parser.py
 
 import re
 
@@ -24,7 +24,7 @@ class YALexParser:
             content = content[header_match.end():]  # quitar el header
 
         # 2. Extraer definiciones de tipo "let IDENT = regex"
-        for match in re.finditer(r'let\s+(\w+)\s*=\s*(.+)', content):
+        for match in re.finditer(r'let\s+(\w+)\s*=\s*([^\n]+)', content):
             ident = match.group(1)
             regex_str = match.group(2).strip()
             self.definitions[ident] = regex_str
@@ -35,7 +35,7 @@ class YALexParser:
             self.entrypoint = rule_match.group(1).strip()
             rules_content = rule_match.group(2).strip()
             # Asumimos que cada alternativa tiene el formato: regexp { action }
-            raw_rules = re.findall(r'(.*?)\{(.*?)\}', rules_content, re.DOTALL)
+            raw_rules = re.findall(r'([^\{]+?)\{([^}]*)\}', rules_content, re.DOTALL)
             filtered_rules = []
             for regex_part, action_part in raw_rules:
                 # 1) elimina cualquier /* … */ (multilínea)

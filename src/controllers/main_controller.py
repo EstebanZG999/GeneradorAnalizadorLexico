@@ -272,20 +272,24 @@ def generate_lexer():
         regex_str_clean = regex_str.lstrip("| ").strip()
         if not regex_str_clean:
             continue
-        raw = yalex_parser.expand_definitions(regex_str_clean)
-        raw = raw.replace("\n", "").strip()
-        expanded_regex = re.sub(
-            r"""\s+(?=(?:[^'"\[\]]|'[^']*'|"[^"]*"|\[[^\]]*\])*$)""",
-            "",
-            raw
-        )
+        # Expandir definiciones y conservar espacios/literales intactos
+        expanded_regex = yalex_parser.expand_definitions(regex_str_clean)
+        # Solo quitar saltos de línea (no espacios)
+        expanded_regex = expanded_regex.replace("\n", "")
+        # Para construir el árbol, añadimos el centinela '#'
+        expanded_regex_for_tree = expanded_regex + '#'
         added_marker = False
         with contextlib.redirect_stdout(io.StringIO()):
             print(f"Regla {idx+1} expandida: {expanded_regex}")
         # Construir el DFA para la regla
-        r_parser = RegexParser(expanded_regex)
+        r_parser = RegexParser(expanded_regex_for_tree)
         r_parser.tokenize()
         postfix = r_parser.to_postfix()
+        # (Debug opcional, envuelto en --verbose)
+        print(f"\n--- DEBUG Regla {idx+1} ---")
+        print(" regex raw:     ", repr(expanded_regex))
+        print(" tokens:        ", [str(t) for t in r_parser.tokens])
+        print(" postfix:       ", [str(t) for t in postfix])
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         with contextlib.redirect_stdout(io.StringIO()):

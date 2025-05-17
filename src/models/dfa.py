@@ -107,7 +107,7 @@ class DFA:
             if any(self.pos_to_symbol[p] == '#' for p in state_set):
                 self.accepting_states.add(state_id)
         # Fallback: solo si aún no hay aceptadores Y hay posiciones definidas
-        if not self.accepting_states:
+        if not self.accepting_states and self.pos_to_symbol:
             max_pos = max(self.pos_to_symbol)
             for state_set, state_id in self.states.items():
                 if max_pos in state_set:
