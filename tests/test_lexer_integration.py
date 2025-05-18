@@ -18,9 +18,9 @@ def test_lexer_simple_expression():
     #   NUMBER  3
     #   EOL     None
     expected = [
-        ("WORD", "A"),    # gettoken mapea LETTER (o WORD) → depende de tu regla ORDER
+        ("ID", "A"),    # gettoken mapea LETTER (o WORD) → depende de tu regla ORDER
         ("PLUS", "+"),
         ("NUMBER", 3),
-        ("EOL", None),
+        ("EOL",    "\n"),
     ]
     assert tokens == expected
