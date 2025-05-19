@@ -1,4 +1,4 @@
-# models/yalex_parser.py
+# src/models/yalex_parser.py
 
 import re
 
@@ -15,6 +15,8 @@ class YALexParser:
         with open(self.filename, 'r', encoding='utf-8') as f:
             content = f.read()
 
+        content = re.sub(r'\(\*.*?\*\)', '', content, flags=re.DOTALL)
+
         # 1. Extraer {header} (asumiendo que el header es el primer bloque entre { })
         header_match = re.search(r'^\s*\{(.*?)\}', content, re.DOTALL)
         if header_match:
@@ -22,7 +24,7 @@ class YALexParser:
             content = content[header_match.end():]  # quitar el header
 
         # 2. Extraer definiciones de tipo "let IDENT = regex"
-        for match in re.finditer(r'let\s+(\w+)\s*=\s*(.+)', content):
+        for match in re.finditer(r'let\s+(\w+)\s*=\s*([^\n]+)', content):
             ident = match.group(1)
             regex_str = match.group(2).strip()
             self.definitions[ident] = regex_str
@@ -33,16 +35,15 @@ class YALexParser:
             self.entrypoint = rule_match.group(1).strip()
             rules_content = rule_match.group(2).strip()
             # Asumimos que cada alternativa tiene el formato: regexp { action }
-            raw_rules = re.findall(r'(.*?)\{(.*?)\}', rules_content, re.DOTALL)
+            raw_rules = re.findall(r'([^\{]+?)\{([^}]*)\}', rules_content, re.DOTALL)
             filtered_rules = []
             for regex_part, action_part in raw_rules:
-                # Quitamos espacios extremos
-                regex_clean = regex_part.strip()
-                # Si empieza con '|' lo removemos (pero solo esa marca, sin afectar el resto)
-                if regex_clean.startswith('|'):
-                    regex_clean = regex_clean[1:].strip()
-                if regex_clean:  # Solo agregamos si no está vacía
-                    filtered_rules.append((regex_clean, action_part.strip()))
+                # 1) elimina cualquier /* … */ (multilínea)
+                action_clean = re.sub(r'/\*.*?\*/', '', action_part, flags=re.DOTALL).strip()
+                # 2) si queda vacío, ponemos un pass (Python válido)
+                if not action_clean:
+                    action_clean = 'pass'
+                filtered_rules.append((regex_part.strip(), action_clean))
             self.rules = filtered_rules
 
         # 4. Extraer {trailer} (si existe, asumimos que es el último bloque entre { } al final)
@@ -50,8 +51,19 @@ class YALexParser:
         if trailer_match:
             self.trailer_code = trailer_match.group(1).strip()
 
+
     def expand_definitions(self, regex_str):
-        # Reemplaza en regex_str cada identificador definido en self.definitions
-        for ident, definition in self.definitions.items():
-            regex_str = re.sub(r'\b' + re.escape(ident) + r'\b', f'({definition})', regex_str)
+        """
+        Sustituye cada identificador por su definición hasta que
+        no queden más nombres de definiciones en la cadena.
+        """
+        # Repetimos hasta que no haya ningún cambio
+        while True:
+            new_regex = regex_str
+            for ident, definition in self.definitions.items():
+                pattern = re.compile(r'\b' + re.escape(ident) + r'\b')
+                new_regex = pattern.sub(lambda m: f"({definition})", new_regex)
+            if new_regex == regex_str:
+                break
+            regex_str = new_regex
         return regex_str

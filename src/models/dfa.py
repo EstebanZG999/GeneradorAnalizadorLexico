@@ -19,6 +19,15 @@ class DFA:
         self.accepting_states = set()
         # Construir el AFD
         self.build_dfa()
+        # Creo un mapeo inverso {estado_id -> frozenset(posiciones)}
+        self.state_sets = { state_id: state_set
+                        for state_set, state_id in self.states.items() }
+        # Averiguo la posición del marcador interno '#', si existe
+        try:
+            self.marker_pos = next(pos for pos, sym in self.pos_to_symbol.items()
+                                   if sym == '#')
+        except StopIteration:
+            self.marker_pos = None
 
     def compute_followpos(self, node):
         followpos = {}
@@ -95,11 +104,11 @@ class DFA:
 
         # Estados de aceptación: usa get() para evitar KeyError si falta alguna posición
         for state_set, state_id in self.states.items():
-            if any(self.pos_to_symbol.get(pos) == '#' for pos in state_set):
+            if any(self.pos_to_symbol[p] == '#' for p in state_set):
                 self.accepting_states.add(state_id)
         # Fallback: solo si aún no hay aceptadores Y hay posiciones definidas
         if not self.accepting_states and self.pos_to_symbol:
-            max_pos = max(self.pos_to_symbol.keys())
+            max_pos = max(self.pos_to_symbol)
             for state_set, state_id in self.states.items():
                 if max_pos in state_set:
                     self.accepting_states.add(state_id)
@@ -168,25 +177,19 @@ class DFA:
         print(f"Imagen del DFA guardada en: {output_path}.png")
 
     def match_prefix(self, input_str):
-        """
-        Returns the length of the longest prefix (including the implicit '#')
-        that lands in an accepting state.
-        """
-        current_state = self.initial_state
-        last_accept_pos = -1
-        pos = 0
-        # scan all chars _and_ the trailing '#'
-        for ch in input_str + '#':
-            trans = self.transitions.get(current_state, {})
-            if ch in trans:
-                current_state = trans[ch]
-                pos += 1
-                if current_state in self.accepting_states:
-                    last_accept_pos = pos
-            else:
+        current = self.initial_state
+        last_accept = 0
+
+        for i, ch in enumerate(input_str, start=1):
+            # si no hay transición, corto
+            if ch not in self.transitions.get(current, {}):
                 break
-        # if we never hit an accepting state, return 0
-        return last_accept_pos if last_accept_pos != -1 else 0
+            current = self.transitions[current][ch]
+            # si el nuevo estado es de aceptación, apunto su posición
+            if current in self.accepting_states:
+                last_accept = i
+
+        return last_accept
 
  
  

@@ -22,3 +22,21 @@ líneaVacía2
 /* comentario multilinea mal soportado */
 
 TOKEN123+(999-(badToken!
+
+
+
+
+Hola123 mundo42    pruebaMAX123
+\t\tEstoEsUnTest987     +   (1234 -    (56 * 78))
+
+abcd1234efg ( -9988 + 44)	+
+
++
+-
+*
+(
+)
+
+\ndatoFinal\t\t
+
+###EstoNoDebeSerReconocido!!!

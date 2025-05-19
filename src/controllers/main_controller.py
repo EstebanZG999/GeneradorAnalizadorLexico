@@ -39,6 +39,8 @@ def generate_global_dfa():
         
         # Expandir definiciones
         expanded_regex = yalex_parser.expand_definitions(regex_clean)
+        if not expanded_regex.endswith('#'):
+           expanded_regex += '#'
         # Elimina saltos de línea y espacios extra de la expresión expandida
         expanded_regex = expanded_regex.replace("\n", "").strip()
         # Remover el marcador terminal '#' si existe
@@ -60,8 +62,9 @@ def generate_global_dfa():
     global_regex = "|".join(f"({r})" for r in global_rules)
     print("Expresión global generada:", global_regex)
     
-    # (Opcional) Remueve cualquier salto de línea que pueda quedar en la expresión global
-    global_regex = global_regex.replace("\n", "").replace("\r", "").strip()
+    
+    # Remueve cualquier salto de línea que pueda quedar en la expresión global —> Comentado para no romper literales \n, \t dentro de []
+    # global_regex = global_regex.replace("\n", "").replace("\r", "").strip()
     print("Expresión global generada (repr):", repr(global_regex))
     
     # Procesar la expresión global: tokenizar, convertir a postfix, construir árbol y DFA
@@ -123,24 +126,30 @@ setattr(DFA, "match_prefix_and_token", match_prefix_and_token)
 def extend_dfa_with_match_prefix():
     """
     Agrega a la clase DFA el método match_prefix, que recorre el input
-    carácter a carácter y retorna la longitud del mayor prefijo aceptado.
+    carácter a carácter (más un '#' al final) y retorna la longitud del
+    mayor prefijo aceptado (sin contar ese '#').
     """
     def match_prefix(self, input_str):
         current_state = self.initial_state
         last_accept_pos = -1
-        pos = 0
-        for ch in input_str:
-            if ch in self.transitions.get(current_state, {}):
-                current_state = self.transitions[current_state][ch]
-                pos += 1
-                if current_state in self.accepting_states:
-                    last_accept_pos = pos
-            else:
+        # Escaneamos los caracteres reales más un '#' al final
+        stream = input_str + '#'
+        for i, ch in enumerate(stream, start=1):
+            trans = self.transitions.get(current_state, {})
+            if ch not in trans:
                 break
-        if last_accept_pos != -1:
-            return last_accept_pos
-        return 0
+            current_state = trans[ch]
+            # Si es estado aceptador, guardamos la posición
+            if current_state in self.accepting_states:
+                last_accept_pos = i
+        # last_accept_pos == índice en stream donde fue aceptado;
+        # como en stream aparece '#' en la última posición válida,
+        # y queremos la longitud sobre input_str, devolvemos last_accept_pos
+        # sólo si es ≥ 0 y menor que len(input_str)+1
+        return last_accept_pos
+
     setattr(DFA, "match_prefix", match_prefix)
+
 
 def test_full_pipeline(input_file):
     """
@@ -263,24 +272,26 @@ def generate_lexer():
         regex_str_clean = regex_str.lstrip("| ").strip()
         if not regex_str_clean:
             continue
-        raw = yalex_parser.expand_definitions(regex_str_clean)
-        raw = raw.replace("\n", "").strip()
-        expanded_regex = re.sub(
-            r"""\s+(?=(?:[^'"\[\]]|'[^']*'|"[^"]*"|\[[^\]]*\])*$)""",
-            "",
-            raw
-        )
+        # Expandir definiciones y conservar espacios/literales intactos
+        expanded_regex = yalex_parser.expand_definitions(regex_str_clean)
+        # Solo quitar saltos de línea (no espacios)
+        expanded_regex = expanded_regex.replace("\n", "")
+        # Para construir el árbol, añadimos el centinela '#'
+        expanded_regex_for_tree = expanded_regex + '#'
         added_marker = False
-        # Si no se encuentra el marcador terminal, se agrega de forma implícita.
-        if '#' not in expanded_regex:
-            expanded_regex = expanded_regex + '#'
-            added_marker = True
         with contextlib.redirect_stdout(io.StringIO()):
             print(f"Regla {idx+1} expandida: {expanded_regex}")
         # Construir el DFA para la regla
-        r_parser = RegexParser(expanded_regex)
+        r_parser = RegexParser(expanded_regex_for_tree)
         r_parser.tokenize()
         postfix = r_parser.to_postfix()
+        # (Debug opcional, envuelto en --verbose)
+        """
+        print(f"\n--- DEBUG Regla {idx+1} ---")
+        print(" regex raw:     ", repr(expanded_regex))
+        print(" tokens:        ", [str(t) for t in r_parser.tokens])
+        print(" postfix:       ", [str(t) for t in postfix])
+        """
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
         with contextlib.redirect_stdout(io.StringIO()):
@@ -298,8 +309,9 @@ def generate_lexer():
     with open(output_filename, "w", encoding="utf-8") as f:
         # Escribir header (el código extraído del archivo YALex)
         f.write("# Código generado automáticamente por YALex\n")
-        # header = "\n".join(line.lstrip() for line in yalex_parser.header_code.splitlines())
-        # f.write(header + "\n\n")
+        header = "\n".join(line.lstrip() for line in yalex_parser.header_code.splitlines())
+        if header:
+            f.write(header + "\n\n")
 
         # Definir la clase Lexer
         f.write("class Lexer:\n")
@@ -324,15 +336,24 @@ def generate_lexer():
         f.write("                pos += 1\n")
         f.write("            else:\n")
         f.write("                lexeme = text[pos:pos+longest_match]\n")
-        # Si el lexema termina en '#' (marcador agregado), se quita esa última posición
-        f.write("                if lexeme.endswith('#'):\n")
-        f.write("                    lexeme = lexeme[:-1]\n")
         f.write("                local_env = {'lexeme': lexeme, 'text': text}\n")
         f.write("                action_code = selected_rule['action'].replace('return', 'token =')\n")
-        f.write("                exec(action_code, {}, local_env)\n")
+        f.write("                exec(action_code, globals(), local_env)\n")
         f.write("                token = local_env.get('token', None)\n")
         f.write("                if token is not None:\n")
-        f.write("                   tokens.append(token)\n")
+        f.write("                    if isinstance(token, tuple):\n")
+        f.write("                        tokens.append(token)\n")
+        f.write("                        lexeme_out = token[1]\n")
+        f.write("                    else:\n")
+        f.write("                        if token == NUMBER:\n")
+        f.write("                            try:\n")
+        f.write("                                lexeme_out = int(lexeme)\n")
+        f.write("                            except ValueError:\n")
+        f.write("                                lexeme_out = float(lexeme)\n")
+        f.write("                        else:\n")
+        f.write("                            lexeme_out = lexeme\n")
+        f.write("                        tokens.append((token, lexeme_out))\n")
+        f.write("                    print(f'⟶ Token: {token!r}, lexema: {lexeme_out!r}')\n")
         f.write("                pos += longest_match\n")
         f.write("        return tokens\n")
         f.write("\n")
@@ -346,7 +367,7 @@ def generate_lexer():
             f.write("        from src.models.syntax_tree import SyntaxTree\n")
             f.write("        from src.models.dfa import DFA\n")
             f.write(f"        # Regla: {rule['regex']}\n")
-            f.write(f"        parser = RegexParser({rule['regex']!r})\n")
+            f.write(f"        parser = RegexParser({rule['regex']!r} + '#')\n")
             f.write("        parser.tokenize()\n")
             f.write("        postfix = parser.to_postfix()\n")
             f.write("        syntax_tree = SyntaxTree(postfix)\n")

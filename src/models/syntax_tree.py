@@ -1,4 +1,4 @@
-# models/syntax_parser.py
+# src/models/syntax_tree.py
 
 import os
 import graphviz
@@ -99,26 +99,68 @@ class SyntaxTree:
     def construir_arbol(self):
         stack = []
         for token in self.postfix:
-            # token es un Symbol. Para hojas comparamos token.value
+            # Caso hoja
             if (token.value.isalnum() or token.value == '#') or not token.is_operator:
                 nodo_hoja = NodoHoja(token.value, self.posicion_actual)
                 stack.append(nodo_hoja)
                 self.posicion_actual += 1
-            elif token.value == '*':  # Nodo unario
+
+            # Cerradura *
+            elif token.value == '*':  
+                # Aquí comprobamos que haya un operando en la pila
+                if len(stack) < 1:
+                    raise ValueError(
+                        f"SyntaxTree: operador unario '*' sin operando previo.\n"
+                        f"Postfix completo: {[str(t) for t in self.postfix]}"
+                    )
                 nodo = stack.pop()
                 stack.append(NodoUnario(token.value, nodo))
-            elif token.value == '+':  # Operador unario de "una o más"
-                # Transformamos A+ en A concatenado con A*
-                nodo = stack.pop()                    # A
-                nodo_clausura = NodoUnario('*', nodo)   # A*
-                nodo_concat = NodoBinario('.', nodo, nodo_clausura)  # A · A*
+
+            # Uno o más +
+            elif token.value == '+':  
+                if len(stack) < 1:
+                    raise ValueError(
+                        f"SyntaxTree: operador unario '+' sin operando previo.\n"
+                        f"Postfix completo: {[str(t) for t in self.postfix]}"
+                    )
+                nodo = stack.pop()
+                nodo_clausura = NodoUnario('*', nodo)
+                nodo_concat = NodoBinario('.', nodo, nodo_clausura)
                 stack.append(nodo_concat)
-            elif token.value in {'.', '|'}:  # Nodo binario
-                derecho = stack.pop()
+
+            # Concatenación o alternancia
+            elif token.value in {'.', '|'}:
+                # Comprobamos que haya al menos dos operandos
+                if len(stack) < 2:
+                    raise ValueError(
+                        f"SyntaxTree: operador binario '{token.value}' sin suficientes operandos.\n"
+                        f"Postfix completo: {[str(t) for t in self.postfix]}"
+                    )
+                derecho   = stack.pop()
                 izquierdo = stack.pop()
                 stack.append(NodoBinario(token.value, izquierdo, derecho))
-        # El último nodo en el stack es la raíz
 
+            # Cero o uno ?
+            elif token.value == '?':
+                if len(stack) < 1:
+                    raise ValueError(
+                        f"SyntaxTree: operador '?' sin operando previo.\n"
+                        f"Postfix completo: {[str(t) for t in self.postfix]}"
+                    )
+                nodo = stack.pop()
+                hoja_epsilon = NodoHoja('ε', self.posicion_actual)
+                self.posicion_actual += 1
+                altern = NodoBinario('|', nodo, hoja_epsilon)
+                stack.append(altern)
+    
+        # Al finalizar, debe quedar **exactamente** un nodo (la raíz)
+        if not self.postfix:
+            raise ValueError("SyntaxTree: postfix vacío, nada que construir.")
+        if len(stack) != 1:
+            raise ValueError(
+                f"SyntaxTree: tras procesar postfix, quedan {len(stack)} nodos en la pila en lugar de 1.\n"
+                f"Postfix completo: {[str(t) for t in self.postfix]}"
+            )
         return stack.pop()
     
     def obtener_raiz(self):
