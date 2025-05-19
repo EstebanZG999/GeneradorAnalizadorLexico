@@ -62,11 +62,8 @@ class YALexParser:
             new_regex = regex_str
             for ident, definition in self.definitions.items():
                 # \b para que reemplace solo el nombre completo
-                new_regex = re.sub(
-                    r'\b' + re.escape(ident) + r'\b',
-                    f'({definition})',
-                    new_regex
-                )
+                pattern = re.compile(r'\b' + re.escape(ident) + r'\b')
+                new_regex = pattern.sub(lambda m: f"({definition})", new_regex)
             if new_regex == regex_str:
                 break
             regex_str = new_regex
