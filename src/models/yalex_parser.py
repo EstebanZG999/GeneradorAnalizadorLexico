@@ -15,6 +15,10 @@ class YALexParser:
         with open(self.filename, 'r', encoding='utf-8') as f:
             content = f.read()
 
+        # eliminar comentarios estilo YALex y C:
+        content = re.sub(r'\(\*.*?\*\)', '', content, flags=re.DOTALL)   # (* … *)
+        content = re.sub(r'/\*.*?\*/',  '', content, flags=re.DOTALL)   # /* … */
+
         content = re.sub(r'\(\*.*?\*\)', '', content, flags=re.DOTALL)
 
         # 1. Extraer {header} (asumiendo que el header es el primer bloque entre { })
