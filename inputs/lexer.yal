@@ -19,8 +19,21 @@ rule tokens =
     ws                          { return None }
   | "###".*[\n]                 { return None }
   | '\n'                        { return EOL }
+
+  /* ——— Keywords ——— */
+  | "if"                        { return IF }
+  | "else"                      { return ELSE }
+  | "while"                     { return WHILE }
+  | "for"                       { return FOR }
+  | "return"                    { return RETURN }
+  | "break"                     { return BREAK }
+  | "continue"                  { return CONTINUE }
+
+  /* ——— IDs y números ——— */
   | id                          { return ID }
   | number                      { return NUMBER }
+
+  /* ——— Operadores y puntuación ——— */
   | ":="                        { return ('ASSIGN', lexeme) }
   | '+'                         { return ('PLUS',     lexeme) }
   | '-'                         { return ('MINUS',    lexeme) }
@@ -35,7 +48,10 @@ rule tokens =
   | '='                         { return ('EQ',       lexeme) }
   | '>'                         { return ('GT',       lexeme) }
   | eof                         { return EOF }
+
+  /* ——— Catch-all al final ——— */
   | .                           { return ('SYMBOL', lexeme) }
+
 
 (* --- Trailer: código que se copia al final del .py generado --- *)
 { 
