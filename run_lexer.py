@@ -5,10 +5,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
-from src.controllers.main_controller import generate_lexer, extend_dfa_with_match_prefix
-
-# Extender el DFA con el método match_prefix (necesario para la simulación)
-extend_dfa_with_match_prefix()
+from src.controllers.main_controller import generate_lexer
 
 # Generar (o actualizar) el analizador léxico a partir de la especificación YALex
 generate_lexer()
