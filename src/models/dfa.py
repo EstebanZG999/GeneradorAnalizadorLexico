@@ -177,19 +177,66 @@ class DFA:
         print(f"Imagen del DFA guardada en: {output_path}.png")
 
     def match_prefix(self, input_str):
-        current = self.initial_state
-        last_accept = 0
-
-        for i, ch in enumerate(input_str, start=1):
-            # si no hay transición, corto
-            if ch not in self.transitions.get(current, {}):
+        """
+        Escanea input_str + '#' al final y devuelve la longitud
+        del mayor prefijo reconocido por el DFA (sin contar '#').
+        """
+        current_state = self.initial_state
+        last_accept_pos = -1
+        # Escaneamos los caracteres reales más un '#' al final
+        stream = input_str + '#'
+        for i, ch in enumerate(stream, start=1):
+            trans = self.transitions.get(current_state, {})
+            if ch not in trans:
                 break
-            current = self.transitions[current][ch]
-            # si el nuevo estado es de aceptación, apunto su posición
-            if current in self.accepting_states:
-                last_accept = i
+            current_state = trans[ch]
+            # Si es estado de aceptacion, guardamos la posición
+            if current_state in self.accepting_states:
+                last_accept_pos = i
+        # last_accept_pos == índice en stream donde fue aceptado;
+        # como en stream aparece '#' en la última posición válida,
+        # y queremos la longitud sobre input_str, devolvemos last_accept_pos
+        # sólo si es ≥ 0 y menor que len(input_str)+1
+        return last_accept_pos
+    
+    
+    def match_prefix_and_token(self, input_str):
+        """
+        Recorre input_str y devuelve (largo, token_info) donde token_info
+        proviene de marker_to_rule para el marcador más prioritario.
+        """
+        current_state = self.initial_state
+        last_accept_pos = -1
+        accepted_state = None
+        pos = 0
 
-        return last_accept
+        for ch in input_str:
+            trans = self.transitions.get(current_state, {})
+            if ch in trans:
+                current_state = trans[ch]
+                pos += 1
+                if current_state in self.accepting_states:
+                    last_accept_pos = pos
+                    accepted_state = current_state
+            else:
+                break
+
+        if last_accept_pos != -1 and accepted_state is not None:
+            # obtenemos el conjunto de posiciones del estado aceptador
+            state_set = self.state_sets[accepted_state]
+            matched_marker = None
+            for p in state_set:
+                sym = self.pos_to_symbol[p]
+                if sym in self.marker_to_rule:
+                    # elegimos el marcador de menor 'order'
+                    if (matched_marker is None or
+                        self.marker_to_rule[sym]['order'] <
+                        self.marker_to_rule[matched_marker]['order']):
+                        matched_marker = sym
+            if matched_marker is not None:
+                return last_accept_pos, self.marker_to_rule[matched_marker]
+
+        return 0, None
 
  
  

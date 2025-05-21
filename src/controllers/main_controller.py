@@ -83,72 +83,6 @@ def generate_global_dfa():
     return global_dfa
 
 
-def match_prefix_and_token(self, input_str):
-    """
-    Recorre el input carácter a carácter y retorna una tupla (largo, token_info),
-    donde token_info contiene la acción y el orden asociados al token reconocido.
-    """
-    current_state = self.initial_state
-    last_accept_pos = -1
-    accepted_state = None
-    pos = 0
-    
-    for ch in input_str:
-        if ch in self.transitions.get(current_state, {}):
-            current_state = self.transitions[current_state][ch]
-            pos += 1
-            if current_state in self.accepting_states:
-                last_accept_pos = pos
-                accepted_state = current_state
-        else:
-            break
-
-    if last_accept_pos != -1 and accepted_state is not None:
-        # Obtén el conjunto de posiciones asociado al estado aceptador
-        state_set = self.state_sets[accepted_state]
-        matched_marker = None
-        # Busca entre las posiciones la que corresponda a un marcador único
-        for pos_val in state_set:
-            symbol = self.pos_to_symbol[pos_val]
-            if symbol in self.marker_to_rule:
-                if matched_marker is None or self.marker_to_rule[symbol]['order'] < self.marker_to_rule[matched_marker]['order']:
-                    matched_marker = symbol
-        if matched_marker is not None:
-            return last_accept_pos, self.marker_to_rule[matched_marker]
-    return 0, None
-
-# Asigna el nuevo método a la clase DFA
-setattr(DFA, "match_prefix_and_token", match_prefix_and_token)
-
-
-def extend_dfa_with_match_prefix():
-    """
-    Agrega a la clase DFA el método match_prefix, que recorre el input
-    carácter a carácter (más un '#' al final) y retorna la longitud del
-    mayor prefijo aceptado (sin contar ese '#').
-    """
-    def match_prefix(self, input_str):
-        current_state = self.initial_state
-        last_accept_pos = -1
-        # Escaneamos los caracteres reales más un '#' al final
-        stream = input_str + '#'
-        for i, ch in enumerate(stream, start=1):
-            trans = self.transitions.get(current_state, {})
-            if ch not in trans:
-                break
-            current_state = trans[ch]
-            # Si es estado aceptador, guardamos la posición
-            if current_state in self.accepting_states:
-                last_accept_pos = i
-        # last_accept_pos == índice en stream donde fue aceptado;
-        # como en stream aparece '#' en la última posición válida,
-        # y queremos la longitud sobre input_str, devolvemos last_accept_pos
-        # sólo si es ≥ 0 y menor que len(input_str)+1
-        return last_accept_pos
-
-    setattr(DFA, "match_prefix", match_prefix)
-
-
 def test_full_pipeline(input_file):
     """
     Función para procesar un archivo YALex y mostrar, para cada regla,
@@ -438,7 +372,7 @@ def generate_lexer():
     print(f"\nAnalizador léxico generado y guardado en: {output_filename}")
 
 if __name__ == "__main__":
-    extend_dfa_with_match_prefix()
+    #extend_dfa_with_match_prefix()
     # test_full_pipeline("inputs/lexer.yal")
     
     # Ejecutar la generación del archivo final del analizador léxico
