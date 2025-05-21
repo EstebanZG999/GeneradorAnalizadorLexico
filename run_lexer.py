@@ -1,18 +1,17 @@
 import sys
 import os
+from src.controllers.main_controller import generate_lexer
+from thelexer import Lexer
 
 # Asegurarnos de que el directorio raíz y 'src' estén en el path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
-from src.controllers.main_controller import generate_lexer
-
-# Generar (o actualizar) el analizador léxico a partir de la especificación YALex
-generate_lexer()
-
-from thelexer import Lexer
 
 def main():
+    # Generar (o actualizar) el analizador léxico a partir de la especificación YALex
+    generate_lexer()
+
     # Si no se pasa un archivo de entrada, usamos uno por defecto en 'inputs'
     if len(sys.argv) < 2:
         default_input_file = os.path.join("inputs", "entrada.txt")
