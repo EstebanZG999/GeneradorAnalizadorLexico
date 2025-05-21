@@ -39,8 +39,6 @@ def generate_global_dfa():
         
         # Expandir definiciones
         expanded_regex = yalex_parser.expand_definitions(regex_clean)
-        if not expanded_regex.endswith('#'):
-           expanded_regex += '#'
         # Elimina saltos de línea y espacios extra de la expresión expandida
         expanded_regex = expanded_regex.replace("\n", "").strip()
         # Remover el marcador terminal '#' si existe
@@ -267,17 +265,53 @@ def generate_lexer():
     # print("\nReglas encontradas:")
     
     rules = []
-    for idx, (regex_str, action_code) in enumerate(yalex_parser.rules):
+    for idx, (regex_str, action_code) in enumerate(yalex_parser.rules, start=1):
         # Limpieza de la regex: eliminar '|' inicial y espacios
         regex_str_clean = regex_str.lstrip("| ").strip()
         if not regex_str_clean:
             continue
-        # Expandir definiciones y conservar espacios/literales intactos
+        # 1) Expandir definiciones
         expanded_regex = yalex_parser.expand_definitions(regex_str_clean)
-        # Solo quitar saltos de línea (no espacios)
+        # 2) Si la regla es exactamente un literal entre comillas,
+        #    tratamos el salto de línea '\n' como un escape especial
+        if (expanded_regex.startswith("'") and expanded_regex.endswith("'")) \
+        or (expanded_regex.startswith('"') and expanded_regex.endswith('"')):
+            lit = expanded_regex[1:-1]
+            if lit == r"\n":
+                # queremos un único backslash-n para que el parser lo convierta a '\n'
+                escaped = r"\n"
+            else:
+                escaped = re.escape(lit)
+            expanded_regex = escaped
+        else:
+            # Para literales incrustados, escapamos cada uno
+            expanded_regex = re.sub(
+                r'"([^"]*)"',
+                lambda m: re.escape(m.group(1)),
+                expanded_regex
+            )
+            expanded_regex = re.sub(
+                r"'([^']*)'",
+                lambda m: re.escape(m.group(1)),
+                expanded_regex
+            )
+        # 3) Quitar saltos de línea (sin tocar espacios)
         expanded_regex = expanded_regex.replace("\n", "")
-        # Para construir el árbol, añadimos el centinela '#'
+        # 4) Añadir centinela '#' al final
         expanded_regex_for_tree = expanded_regex + '#'
+        '''
+        # ——— DEPURACIÓN ———
+        print(f"[DEBUG] Regla {idx}: expresión a tokenizar → {expanded_regex_for_tree!r}")
+        r_parser = RegexParser(expanded_regex_for_tree)
+        try:
+            r_parser.tokenize()
+        except ValueError as e:
+            print(f"¡Error parseando la expresión expandida en la regla {idx}!")
+            print(f"   expanded_regex_for_tree = {expanded_regex_for_tree!r}")
+            # Re-lanzamos el mismo error para que se vea el stack trace
+            raise
+        # ——— fin depuración ———
+        '''
         added_marker = False
         with contextlib.redirect_stdout(io.StringIO()):
             print(f"Regla {idx+1} expandida: {expanded_regex}")
@@ -309,6 +343,7 @@ def generate_lexer():
     with open(output_filename, "w", encoding="utf-8") as f:
         # Escribir header (el código extraído del archivo YALex)
         f.write("# Código generado automáticamente por YALex\n")
+        f.write("import re\n")
         header = "\n".join(line.lstrip() for line in yalex_parser.header_code.splitlines())
         if header:
             f.write(header + "\n\n")
@@ -324,41 +359,57 @@ def generate_lexer():
         f.write("        text = self.input_text\n")
         f.write("        pos = 0\n")
         f.write("        while pos < len(text):\n")
+        # ——— Reconocimiento rápido de números científicos ———
+        f.write("            m = re.match(r'\\d+\\.\\d+(?:[eE][+-]?\\d+)?', text[pos:])\n")
+        f.write("            if m:\n")
+        f.write("                lexeme = m.group(0)\n")
+        f.write("                tokens.append((NUMBER, lexeme))\n")
+        f.write("                print(f'⟶ Token: {NUMBER!r}, lexema: {lexeme!r}')\n")
+        f.write("                pos += len(lexeme)\n")
+        f.write("                continue\n")
+        # 1) Intentar, por cada regla, empatar el mayor prefijo
         f.write("            longest_match = 0\n")
         f.write("            selected_rule = None\n")
         f.write("            for rule in self.rules:\n")
-        f.write("                match_length = rule['dfa'].match_prefix(text[pos:])\n")
-        f.write("                if match_length > longest_match:\n")
-        f.write("                    longest_match = match_length\n")
+        f.write("                ml = rule['dfa'].match_prefix(text[pos:])\n")
+        f.write("                if ml > longest_match:\n")
+        f.write("                    longest_match = ml\n")
         f.write("                    selected_rule = rule\n")
-        f.write("            if longest_match == 0:\n")
-        f.write("                print(f'Error léxico en posición {pos}: símbolo no reconocido: {text[pos]}')\n")
-        f.write("                pos += 1\n")
-        f.write("            else:\n")
+        f.write("            if longest_match > 1:\n")
         f.write("                lexeme = text[pos:pos+longest_match]\n")
+        f.write("                action_code = selected_rule['action']\n")
         f.write("                local_env = {'lexeme': lexeme, 'text': text}\n")
-        f.write("                action_code = selected_rule['action'].replace('return', 'token =')\n")
-        f.write("                exec(action_code, globals(), local_env)\n")
-        f.write("                token = local_env.get('token', None)\n")
-        f.write("                if token is not None:\n")
-        f.write("                    if isinstance(token, tuple):\n")
-        f.write("                        tokens.append(token)\n")
-        f.write("                        lexeme_out = token[1]\n")
-        f.write("                    else:\n")
-        f.write("                        if token == NUMBER:\n")
-        f.write("                            try:\n")
-        f.write("                                lexeme_out = int(lexeme)\n")
-        f.write("                            except ValueError:\n")
-        f.write("                                lexeme_out = float(lexeme)\n")
-        f.write("                        else:\n")
-        f.write("                            if token == ID:\n")
-        f.write("                                kw = KEYWORDS.get(lexeme)\n")
-        f.write("                                if kw is not None:\n")
-        f.write("                                    token = kw\n")
-        f.write("                            lexeme_out = lexeme\n")
-        f.write("                        tokens.append((token, lexeme_out))\n")
-        f.write("                    print(f'⟶ Token: {token!r}, lexema: {lexeme_out!r}')\n")
+        f.write("                exec(action_code.replace('return', 'token ='), globals(), local_env)\n")
+        f.write("                tok = local_env.get('token')\n")
+        f.write("                if tok is not None:\n")
+        f.write("                    tokens.append((tok, lexeme))\n")
+        f.write("                    print(f'⟶ Token: {tok!r}, lexema: {lexeme!r}')\n")
         f.write("                pos += longest_match\n")
+        f.write("                continue\n")
+        # 2) Si no fue un token largo, símbolos puntuales
+        f.write("            ch = text[pos]\n")
+        f.write("            mapped = PUNCTUATIONS.get(ch)\n")
+        f.write("            if mapped is not None:\n")
+        f.write("                tokens.append((mapped, ch))\n")
+        f.write("                print(f'⟶ Token: {mapped!r}, lexema: {ch!r}')\n")
+        f.write("                pos += 1\n")
+        f.write("                continue\n")
+        # 3) Si el DFA sólo empata 1 carácter (ej. un dígito suelto)
+        f.write("            if longest_match == 1:\n")
+        f.write("                lexeme = text[pos]\n")
+        f.write("                action_code = selected_rule['action']\n")
+        f.write("                local_env = {'lexeme': lexeme, 'text': text}\n")
+        f.write("                exec(action_code.replace('return', 'token ='), globals(), local_env)\n")
+        f.write("                tok = local_env.get('token')\n")
+        f.write("                # Solo guardamos si no es None\n")
+        f.write("                if tok is not None:\n")
+        f.write("                    tokens.append((tok, lexeme))\n")
+        f.write("                    print(f'⟶ Token: {tok!r}, lexema: {lexeme!r}')\n")
+        f.write("                pos += 1\n")
+        f.write("                continue\n")
+        # 4) Falló todo: error léxico
+        f.write("            print(f'Error léxico en posición {pos}: símbolo no reconocido: {text[pos]}')\n")
+        f.write("            pos += 1\n")
         f.write("        return tokens\n")
         f.write("\n")
         # Propiedad rules que reconstruye las reglas al momento de usar el lexer
