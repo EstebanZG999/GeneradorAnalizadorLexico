@@ -80,7 +80,7 @@ class RegexParser:
                 chars.append(c)
                 i += 1
         
-        # 4) Eliminamos duplicados y ordenamos (opcional)
+        # 4) Eliminamos duplicados y ordenamos
         unique = []
         for c in chars:
             if c not in unique:
