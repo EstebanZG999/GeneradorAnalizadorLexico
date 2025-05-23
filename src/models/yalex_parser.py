@@ -37,18 +37,66 @@ class YALexParser:
         rule_match = re.search(r'rule\s+(\w+)(?:\s*\[.*?\])?\s*=\s*(.*)', content, re.DOTALL)
         if rule_match:
             self.entrypoint = rule_match.group(1).strip()
-            rules_content = rule_match.group(2).strip()
-            # Asumimos que cada alternativa tiene el formato: regexp { action }
-            raw_rules = re.findall(r'([^\{]+?)\{([^}]*)\}', rules_content, re.DOTALL)
-            filtered_rules = []
-            for regex_part, action_part in raw_rules:
-                # 1) elimina cualquier /* … */ (multilínea)
-                action_clean = re.sub(r'/\*.*?\*/', '', action_part, flags=re.DOTALL).strip()
-                # 2) si queda vacío, ponemos un pass (Python válido)
+            rc = rule_match.group(2)
+            n = len(rc)
+            i = 0
+            rules = []
+
+            def _collect_one():
+                nonlocal i
+                # salto espacios
+                while i < n and rc[i].isspace():
+                    i += 1
+                start = i
+                in_lit = None
+                # lee hasta '{' que abre la acción, ignorando literales
+                while i < n:
+                    c = rc[i]
+                    if in_lit:
+                        if c == in_lit and rc[i-1] != '\\':
+                            in_lit = None
+                    else:
+                        if c in ('"', "'"):
+                            in_lit = c
+                        elif c == '{':
+                            break
+                    i += 1
+                regex_part = rc[start:i].strip()
+
+                # extraigo el bloque {…}
+                brace = 0
+                action_start = i
+                while i < n:
+                    c = rc[i]
+                    if c == '{':
+                        brace += 1
+                    elif c == '}':
+                        brace -= 1
+                        if brace == 0:
+                            i += 1
+                            break
+                    i += 1
+                action_part = rc[action_start:i]
+                # quita llaves exteriores y comentarios
+                raw = action_part.strip()
+                if raw.startswith('{') and raw.endswith('}'):
+                    raw = raw[1:-1].strip()
+                action_clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL).strip()
                 if not action_clean:
                     action_clean = 'pass'
-                filtered_rules.append((regex_part.strip(), action_clean))
-            self.rules = filtered_rules
+                return regex_part, action_clean
+
+            # Primera alternativa (sin '|' al inicio)
+            rules.append(_collect_one())
+            # Resto de alternativas
+            while i < n:
+                if rc[i] != '|':
+                    i += 1
+                    continue
+                i += 1
+                rules.append(_collect_one())
+
+            self.rules = rules
 
         # 4. Extraer {trailer} (si existe, asumimos que es el último bloque entre { } al final)
         trailer_match = re.search(r'\{(.*?)\}\s*$', content, re.DOTALL)
