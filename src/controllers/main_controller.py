@@ -9,14 +9,6 @@ from src.models.syntax_tree import SyntaxTree
 from src.models.dfa import DFA
 from src.models.yalex_parser import YALexParser
 from src.models.mindfa import minimize_dfa
-from src.runtime.views.cli_view import (
-    ask_for_regex,
-    ask_for_num_strings,
-    ask_for_string,
-    show_dfa_info,
-    show_simulation_result,
-    show_message
-)
 
 
 def generate_global_dfa():
@@ -31,29 +23,73 @@ def generate_global_dfa():
     global_rules = []
     marker_to_rule = {}
     
+    special = {
+        '#': r'\#',
+        '.': r'\.',
+        '{': r'\{',
+        '}': r'\}',
+    }
+
     for i, (regex_str, action_code) in enumerate(yalex_parser.rules):
-        # Limpieza de la regex: remover '|' inicial y espacios
         regex_clean = regex_str.lstrip("| ").strip()
         if not regex_clean:
             continue
-        
-        # Expandir definiciones
-        expanded_regex = yalex_parser.expand_definitions(regex_clean)
-        # Elimina saltos de línea y espacios extra de la expresión expandida
-        expanded_regex = expanded_regex.replace("\n", "").strip()
-        # Remover el marcador terminal '#' si existe
-        if expanded_regex.endswith('#'):
-            expanded_regex = expanded_regex[:-1]
-        
-        # Asignar un marcador único para esta regla
+
+        if regex_clean == "ws":
+            # expandimos la definición y la metemos tal cual:
+            expanded = yalex_parser.expand_definitions("ws").replace("\n", "").strip()
+            # No la escapamos ni tocamos más, porque es algo como "(([' ' '\t'])+)"
+            escaped = expanded
+            # Y seguimos con el flujo normal de marcado…
+        else:
+            expanded = yalex_parser.expand_definitions(regex_clean).replace("\n", "").strip()
+
+        # Depuración extra para ver qué estamos recibiendo
+        print(f"[RAW   ] Regla {i+1}: regex_str={regex_str!r}, expanded={expanded!r}")
+
+        # Caso A: literal entre comillas
+        if expanded == "'":
+            # un solo apóstrofo: lo representamos como carácter escapado \'
+            escaped = r"\'"
+            # print(f"[SPECIAL] Regla {i+1}: literal suelto {expanded!r} → escaped={escaped!r}")
+        elif expanded == '"':
+            # una sola comilla doble → \"
+            escaped = r'\"'
+            # print(f"[SPECIAL] Regla {i+1}: literal suelto {expanded!r} → escaped={escaped!r}")
+            lit = expanded[1:-1]
+            if lit == r"\n":
+                escaped = r"\n"
+            else:
+                escaped = special.get(lit, re.escape(lit))
+
+        # Caso B: cualquier carácter único no alfanumérico
+        elif len(expanded) == 1 and not expanded.isalnum():
+            escaped = special.get(expanded, re.escape(expanded))
+
+        # Caso C: expresiones más complejas
+        else:
+            escaped = re.sub(r'"([^"]*)"', lambda m: re.escape(m.group(1)), expanded)
+            escaped = re.sub(r"'([^']*)'", lambda m: re.escape(m.group(1)), escaped)
+
+        # Vuelta de depuración para verificar
+        # print(f"[ESCAPED] Regla {i+1}: escaped={escaped!r}")
+
+        # Marcador y resto idéntico al tuyo…
         marker = chr(128 + i)
         marker_to_rule[marker] = {'order': i, 'action': action_code}
-        
-        # Concatena el marcador único al final de la expresión
-        token_regex = f"{expanded_regex}{marker}"
-        # Asegurarse de limpiar la cadena final
-        token_regex = token_regex.replace("\n", "").strip()
-        global_rules.append(token_regex)
+        '''
+        # ——— DEPURACIÓN: tokenización del trozo completo ———
+        debug_regex = escaped + "#"
+        print(f"[DEBUG] Regla {i+1}: expresion a tokenizar → {debug_regex!r}")
+        try:
+            tokens = RegexParser(debug_regex).tokenize()
+            print(f"[DEBUG] Tokens: {[str(t) for t in tokens]}")
+        except ValueError as e:
+            print(f"[ERROR] fallo tokenizando regla {i+1}: {e}")
+            raise
+        # ——— fin depuración ———
+        '''
+        global_rules.append(f"{escaped}{marker}")
 
     
     # Combina todas las expresiones en una única expresión global con alternancia
@@ -78,110 +114,10 @@ def generate_global_dfa():
     global_dfa.state_sets = {state_id: state_set for state_set, state_id in global_dfa.states.items()}
     
     # Genera la imagen del DFA global en la carpeta 'imagenes' con Graphviz
-    global_dfa.render_dfa("global_dfa")
+    # global_dfa.render_dfa("global_dfa")
     
     return global_dfa
 
-
-def test_full_pipeline(input_file):
-    """
-    Función para procesar un archivo YALex y mostrar, para cada regla,
-    el procesamiento: desde la expresión regular original hasta el DFA generado.
-    """
-    # Instanciar y parsear el archivo YALex
-    parser = YALexParser(input_file)
-    parser.parse()
-
-    # Para cada regla extraída
-    for idx, (regex_str, action_code) in enumerate(parser.rules, start=1):
-        print(f"\n=== Procesando Regla {idx} ===")
-        print("Regex original:", regex_str)
-        
-        # Limpieza: elimina '|' y espacios iniciales
-        regex_str_clean = regex_str.lstrip("| ").strip()
-        print("Regex limpia:", regex_str_clean)
-        
-        # Si está vacía, la saltamos
-        if not regex_str_clean:
-            print("Regla vacía. Se omite.")
-            continue
-
-        # Expandir definiciones
-        expanded_regex = parser.expand_definitions(regex_str_clean)
-        print("Regex expandida:", expanded_regex)
-        
-        # Convertir a notación postfix
-        r_parser = RegexParser(expanded_regex)
-        postfix = r_parser.parse()
-        print("Postfix:", [str(token) for token in postfix])
-        
-        # Construir el árbol de sintaxis
-        syntax_tree = SyntaxTree(postfix)
-        # (Opcional: puedes graficar el árbol)
-        # syntax_tree.render(f"imagenes/syntax_tree/tree_regla_{idx}")
-        
-        # Generar el DFA
-        dfa = DFA(syntax_tree)
-        print("Estados del DFA:")
-        for state_set, state_id in dfa.states.items():
-            print(f"  Estado {state_id}: {set(state_set)}")
-        print("Transiciones:")
-        for state_id, trans in dfa.transitions.items():
-            for symbol, target in trans.items():
-                print(f"  δ({state_id}, '{symbol}') = {target}")
-        
-        print("Acción asociada:", action_code)
-
-def run_app():
-    """
-    Función interactiva para probar una expresión regular:
-      - Solicita una regex
-      - Procesa la entrada (conversión a postfix, árbol, DFA y DFA minimizado)
-      - Muestra por consola y genera imágenes de los autómatas
-      - Permite ingresar cadenas de prueba para simular el DFA
-    """
-    # 1) Solicitar regex al usuario
-    user_regex = ask_for_regex()
-    
-    # 2) Parsear regex -> notación postfija
-    parser = RegexParser(user_regex)
-    postfix = parser.parse()
-
-    # 3) Construir árbol sintáctico
-    syntax_tree = SyntaxTree(postfix)
-
-    # 4) Mostrar árbol sintáctico
-    syntax_tree.render("syntax_tree")
-
-    # 5) Construir DFA usando algoritmo directo
-    dfa = DFA(syntax_tree)
-
-    # 6) Minimizar el DFA
-    min_dfa = minimize_dfa(dfa)
-
-    # 7) Mostrar DFA original por consola
-    show_message("\n=== DFA original ===")
-    show_dfa_info(dfa)
-
-    # 8) Mostrar DFA mínimo por consola
-    show_message("\n=== DFA mínimo ===")
-    show_dfa_info(min_dfa)
-
-    # 9) Graficar ambos autómatas
-    dfa.render_dfa("original_dfa")
-    min_dfa.render_dfa("min_dfa")
-
-    # 10) Pedir cadenas de prueba
-    n = ask_for_num_strings()
-    for i in range(n):
-        s = ask_for_string(i)
-        # Interpretamos '$' como la cadena vacía
-        if s == "$":
-            s = ""
-        accepted = dfa.simulate(s)
-        show_simulation_result("$" if s == "" else s, accepted)
-
-    show_message("Fin de la ejecución.")
 
 def generate_lexer():
     """
@@ -197,7 +133,7 @@ def generate_lexer():
     for ident, definition in yalex_parser.definitions.items():
         print(f"  {ident} = {definition}")
     # print("\nReglas encontradas:")
-    
+        
     rules = []
     for idx, (regex_str, action_code) in enumerate(yalex_parser.rules, start=1):
         # Limpieza de la regex: eliminar '|' inicial y espacios
@@ -262,9 +198,6 @@ def generate_lexer():
         """
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        with contextlib.redirect_stdout(io.StringIO()):
-            syntax_tree.render(f"syntax_tree_rule_{idx+1}")
-            dfa.render_dfa(f"dfa_rule_{idx+1}")
         rules.append({
             'regex': expanded_regex,
             'action': action_code,
