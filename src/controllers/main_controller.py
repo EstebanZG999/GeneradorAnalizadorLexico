@@ -23,41 +23,73 @@ def generate_global_dfa():
     global_rules = []
     marker_to_rule = {}
     
+    special = {
+        '#': r'\#',
+        '.': r'\.',
+        '{': r'\{',
+        '}': r'\}',
+    }
+
     for i, (regex_str, action_code) in enumerate(yalex_parser.rules):
-        # 1) Limpieza base: quitamos '|' y espacios
         regex_clean = regex_str.lstrip("| ").strip()
         if not regex_clean:
             continue
 
-        # 2) Expandir definiciones (solo para nombres de clases, no afecta literales)
-        expanded = yalex_parser.expand_definitions(regex_clean).replace("\n", "").strip()
-
-        # 3) Si es exactamente un solo carácter literal (p.ej. '{' o '}'),
-        #    escapar siempre con re.escape, independientemente de comillas.
-        if len(expanded) == 1 and not expanded.isalnum():
-            import re
-            escaped = re.escape(expanded)
-        # 4) Si está entre comillas, extraer y escapar
-        elif (expanded.startswith("'") and expanded.endswith("'")) or \
-             (expanded.startswith('"') and expanded.endswith('"')):
-            lit = expanded[1:-1]
-            import re
-            escaped = r"\n" if lit == r"\n" else re.escape(lit)
-        # 5) En el resto, escapamos cualquier literal incrustado entre comillas
+        if regex_clean == "ws":
+            # expandimos la definición y la metemos tal cual:
+            expanded = yalex_parser.expand_definitions("ws").replace("\n", "").strip()
+            # No la escapamos ni tocamos más, porque es algo como "(([' ' '\t'])+)"
+            escaped = expanded
+            # Y seguimos con el flujo normal de marcado…
         else:
-            import re
+            expanded = yalex_parser.expand_definitions(regex_clean).replace("\n", "").strip()
+
+        # Depuración extra para ver qué estamos recibiendo
+        print(f"[RAW   ] Regla {i+1}: regex_str={regex_str!r}, expanded={expanded!r}")
+
+        # Caso A: literal entre comillas
+        if expanded == "'":
+            # un solo apóstrofo: lo representamos como carácter escapado \'
+            escaped = r"\'"
+            # print(f"[SPECIAL] Regla {i+1}: literal suelto {expanded!r} → escaped={escaped!r}")
+        elif expanded == '"':
+            # una sola comilla doble → \"
+            escaped = r'\"'
+            # print(f"[SPECIAL] Regla {i+1}: literal suelto {expanded!r} → escaped={escaped!r}")
+            lit = expanded[1:-1]
+            if lit == r"\n":
+                escaped = r"\n"
+            else:
+                escaped = special.get(lit, re.escape(lit))
+
+        # Caso B: cualquier carácter único no alfanumérico
+        elif len(expanded) == 1 and not expanded.isalnum():
+            escaped = special.get(expanded, re.escape(expanded))
+
+        # Caso C: expresiones más complejas
+        else:
             escaped = re.sub(r'"([^"]*)"', lambda m: re.escape(m.group(1)), expanded)
             escaped = re.sub(r"'([^']*)'", lambda m: re.escape(m.group(1)), escaped)
 
-        # 6) Asegurarnos de no llevar un '#' al final
-        if escaped.endswith('#'):
-            escaped = escaped[:-1]
+        # Vuelta de depuración para verificar
+        # print(f"[ESCAPED] Regla {i+1}: escaped={escaped!r}")
 
-        # 7) Marcador único
+        # Marcador y resto idéntico al tuyo…
         marker = chr(128 + i)
         marker_to_rule[marker] = {'order': i, 'action': action_code}
-        token_regex = f"{escaped}{marker}"
-        global_rules.append(token_regex)
+        '''
+        # ——— DEPURACIÓN: tokenización del trozo completo ———
+        debug_regex = escaped + "#"
+        print(f"[DEBUG] Regla {i+1}: expresion a tokenizar → {debug_regex!r}")
+        try:
+            tokens = RegexParser(debug_regex).tokenize()
+            print(f"[DEBUG] Tokens: {[str(t) for t in tokens]}")
+        except ValueError as e:
+            print(f"[ERROR] fallo tokenizando regla {i+1}: {e}")
+            raise
+        # ——— fin depuración ———
+        '''
+        global_rules.append(f"{escaped}{marker}")
 
     
     # Combina todas las expresiones en una única expresión global con alternancia
@@ -82,7 +114,7 @@ def generate_global_dfa():
     global_dfa.state_sets = {state_id: state_set for state_set, state_id in global_dfa.states.items()}
     
     # Genera la imagen del DFA global en la carpeta 'imagenes' con Graphviz
-    global_dfa.render_dfa("global_dfa")
+    # global_dfa.render_dfa("global_dfa")
     
     return global_dfa
 
