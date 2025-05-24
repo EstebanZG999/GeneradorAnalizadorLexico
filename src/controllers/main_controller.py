@@ -133,6 +133,16 @@ def generate_lexer():
     for ident, definition in yalex_parser.definitions.items():
         print(f"  {ident} = {definition}")
     # print("\nReglas encontradas:")
+
+    punct_map = {}
+    for regex_str, action_code in yalex_parser.rules:
+        lit = regex_str.strip().lstrip("| ").strip()
+        if (lit.startswith("'") and lit.endswith("'")) or (lit.startswith('"') and lit.endswith('"')):
+            char = lit[1:-1]
+            # extraemos el nombre del token incluso si viene envuelto en paréntesis
+            m = re.search(r"return\s*\(?\s*([A-Za-z_]\w*)", action_code)
+            if m:
+                punct_map[char] = m.group(1)
         
     rules = []
     for idx, (regex_str, action_code) in enumerate(yalex_parser.rules, start=1):
@@ -210,10 +220,20 @@ def generate_lexer():
     with open(output_filename, "w", encoding="utf-8") as f:
         # Escribir header (el código extraído del archivo YALex)
         f.write("# Código generado automáticamente por YALex\n")
+        # 1) Import básico de regex
         f.write("import re\n")
+        # 2) Import de todos los tokens DEFINIDO POR EL HEADER de la gramática
         header = "\n".join(line.lstrip() for line in yalex_parser.header_code.splitlines())
         if header:
             f.write(header + "\n\n")
+        else:
+            f.write("from src.runtime.token_types import *\n\n")
+        # 3) definimos PUNCTUATIONS
+        f.write("# Mapa de puntuaciones generado según las reglas de la gramática\n")
+        f.write("PUNCTUATIONS = {\n")
+        for ch, tok in punct_map.items():
+            f.write(f"    {ch!r}: {tok},\n")
+        f.write("}\n\n")
 
         # Definir la clase Lexer
         f.write("class Lexer:\n")
@@ -234,7 +254,7 @@ def generate_lexer():
         f.write("                print(f'⟶ Token: {NUMBER!r}, lexema: {lexeme!r}')\n")
         f.write("                pos += len(lexeme)\n")
         f.write("                continue\n")
-        # 1) Intentar, por cada regla, empatar el mayor prefijo
+        # Intentar, por cada regla, empatar el mayor prefijo
         f.write("            longest_match = 0\n")
         f.write("            selected_rule = None\n")
         f.write("            for rule in self.rules:\n")
@@ -249,11 +269,31 @@ def generate_lexer():
         f.write("                exec(action_code.replace('return', 'token ='), globals(), local_env)\n")
         f.write("                tok = local_env.get('token')\n")
         f.write("                if tok is not None:\n")
-        f.write("                    tokens.append((tok, lexeme))\n")
+        f.write("                    # si la acción ya devolvió (TOKEN, lexeme), lo usamos directamente\n")
+        f.write("                    if isinstance(tok, tuple):\n")
+        f.write("                        tokens.append(tok)\n")
+        f.write("                    else:\n")
+        f.write("                        tokens.append((tok, lexeme))\n")
         f.write("                    print(f'⟶ Token: {tok!r}, lexema: {lexeme!r}')\n")
         f.write("                pos += longest_match\n")
         f.write("                continue\n")
-        # 2) Si no fue un token largo, símbolos puntuales
+        # Si el DFA sólo empata 1 carácter (ej. ws de longitud 1, dígito suelto...)
+        f.write("            if longest_match == 1:\n")
+        f.write("                lexeme = text[pos]\n")
+        f.write("                action_code = selected_rule['action']\n")
+        f.write("                local_env = {'lexeme': lexeme, 'text': text}\n")
+        f.write("                exec(action_code.replace('return', 'token ='), globals(), local_env)\n")
+        f.write("                tok = local_env.get('token')\n")
+        f.write("                if tok is not None:\n")
+        f.write("                    # si la acción ya devolvió (TOKEN, lexeme), lo usamos directamente\n")
+        f.write("                    if isinstance(tok, tuple):\n")
+        f.write("                        tokens.append(tok)\n")
+        f.write("                    else:\n")
+        f.write("                        tokens.append((tok, lexeme))\n")
+        f.write("                    print(f'⟶ Token: {tok!r}, lexema: {lexeme!r}')\n")
+        f.write("                pos += 1\n")
+        f.write("                continue\n")
+        # Si no fue un token largo ni un match de un char vía DFA, símbolos puntuales
         f.write("            ch = text[pos]\n")
         f.write("            mapped = PUNCTUATIONS.get(ch)\n")
         f.write("            if mapped is not None:\n")
@@ -261,22 +301,14 @@ def generate_lexer():
         f.write("                print(f'⟶ Token: {mapped!r}, lexema: {ch!r}')\n")
         f.write("                pos += 1\n")
         f.write("                continue\n")
-        # 3) Si el DFA sólo empata 1 carácter (ej. un dígito suelto)
-        f.write("            if longest_match == 1:\n")
-        f.write("                lexeme = text[pos]\n")
-        f.write("                action_code = selected_rule['action']\n")
-        f.write("                local_env = {'lexeme': lexeme, 'text': text}\n")
-        f.write("                exec(action_code.replace('return', 'token ='), globals(), local_env)\n")
-        f.write("                tok = local_env.get('token')\n")
-        f.write("                # Solo guardamos si no es None\n")
-        f.write("                if tok is not None:\n")
-        f.write("                    tokens.append((tok, lexeme))\n")
-        f.write("                    print(f'⟶ Token: {tok!r}, lexema: {lexeme!r}')\n")
-        f.write("                pos += 1\n")
-        f.write("                continue\n")
-        # 4) Falló todo: error léxico
-        f.write("            print(f'Error léxico en posición {pos}: símbolo no reconocido: {text[pos]}')\n")
+        # FALLÓ TODO: carácter no declarado → lo marcamos y seguimos
+        f.write("            # Carácter no declarado en la gramática: lo marcamos como UNKNOWN y continuamos\n")
+        f.write("            ch = text[pos]\n")
+        f.write("            print(f\"⟶ Token no reconocido: {ch!r} en posición {pos}\")\n")
+        f.write("            tokens.append((None, ch))  # None indica token no reconocido\n")
         f.write("            pos += 1\n")
+        f.write("            continue\n")
+        f.write("        tokens.append((EOF, ''))\n")
         f.write("        return tokens\n")
         f.write("\n")
         # Propiedad rules que reconstruye las reglas al momento de usar el lexer
