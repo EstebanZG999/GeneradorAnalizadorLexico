@@ -2,6 +2,34 @@
 import re
 from src.runtime.token_types import *
 
+# Mapa de puntuaciones generado según las reglas de la gramática
+PUNCTUATIONS = {
+    '\\n': EOL,
+    'if': IF,
+    'else': ELSE,
+    'while': WHILE,
+    'for': FOR,
+    'return': RETURN,
+    'break': BREAK,
+    'continue': CONTINUE,
+    ':=': ASSIGNOP,
+    '+': PLUS,
+    '-': MINUS,
+    '*': TIMES,
+    '/': DIV,
+    '(': LPAREN,
+    ')': RPAREN,
+    ',': COMMA,
+    ';': SEMICOLON,
+    ':': COLON,
+    '<': LT,
+    '=': EQ,
+    '>': GT,
+    '{': LBRACE,
+    '}': RBRACE,
+    '#': HASH,
+}
+
 class Lexer:
     def __init__(self, input_text):
         self.input_text = input_text
@@ -33,9 +61,29 @@ class Lexer:
                 exec(action_code.replace('return', 'token ='), globals(), local_env)
                 tok = local_env.get('token')
                 if tok is not None:
-                    tokens.append((tok, lexeme))
+                    # si la acción ya devolvió (TOKEN, lexeme), lo usamos directamente
+                    if isinstance(tok, tuple):
+                        tokens.append(tok)
+                    else:
+                        tokens.append((tok, lexeme))
                     print(f'⟶ Token: {tok!r}, lexema: {lexeme!r}')
                 pos += longest_match
+                continue
+            if longest_match == 1:
+                # Ejecutamos la acción (puede ser None para ws)
+                lexeme = text[pos]
+                action_code = selected_rule['action']
+                local_env = {'lexeme': lexeme, 'text': text}
+                exec(action_code.replace('return', 'token ='), globals(), local_env)
+                tok = local_env.get('token')
+                if tok is not None:
+                    # si la acción ya devolvió (TOKEN, lexeme), lo usamos directamente
+                    if isinstance(tok, tuple):
+                        tokens.append(tok)
+                    else:
+                        tokens.append((tok, lexeme))
+                    print(f'⟶ Token: {tok!r}, lexema: {lexeme!r}')
+                pos += 1
                 continue
             ch = text[pos]
             mapped = PUNCTUATIONS.get(ch)
@@ -44,20 +92,13 @@ class Lexer:
                 print(f'⟶ Token: {mapped!r}, lexema: {ch!r}')
                 pos += 1
                 continue
-            if longest_match == 1:
-                lexeme = text[pos]
-                action_code = selected_rule['action']
-                local_env = {'lexeme': lexeme, 'text': text}
-                exec(action_code.replace('return', 'token ='), globals(), local_env)
-                tok = local_env.get('token')
-                # Solo guardamos si no es None
-                if tok is not None:
-                    tokens.append((tok, lexeme))
-                    print(f'⟶ Token: {tok!r}, lexema: {lexeme!r}')
-                pos += 1
-                continue
-            print(f'Error léxico en posición {pos}: símbolo no reconocido: {text[pos]}')
+            # Carácter no declarado en la gramática: lo marcamos como UNKNOWN y continuamos
+            ch = text[pos]
+            print(f"⟶ Token no reconocido: {ch!r} en posición {pos}")
+            tokens.append((None, ch))  # None indica token no reconocido
             pos += 1
+            continue
+        tokens.append((EOF, ''))
         return tokens
 
     @property
@@ -316,13 +357,13 @@ class Lexer:
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA
-        # Regla: 
-        parser = RegexParser('' + '#')
+        # Regla: \{
+        parser = RegexParser('\\{' + '#')
         parser.tokenize()
         postfix = parser.to_postfix()
         syntax_tree = SyntaxTree(postfix)
         dfa = DFA(syntax_tree)
-        rules.append({'regex': '', 'action': "'                         { return (LBRACE,   lexeme)", 'dfa': dfa})
+        rules.append({'regex': '\\{', 'action': 'return (LBRACE,   lexeme)', 'dfa': dfa})
         from src.models.regex_parser import RegexParser
         from src.models.syntax_tree import SyntaxTree
         from src.models.dfa import DFA

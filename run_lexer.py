@@ -1,17 +1,18 @@
 import sys
 import os
 from src.controllers.main_controller import generate_lexer, generate_global_dfa
-from thelexer import Lexer
 
 # Asegurarnos de que el directorio raíz y 'src' estén en el path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 
-def main():
-    # Generar (o actualizar) el analizador léxico a partir de la especificación YALex
-    generate_lexer()
+# Generar (o actualizar) el analizador léxico a partir de la especificación YALex
+generate_lexer()
 
+from thelexer import Lexer
+
+def main():
     # 2) Construir y renderizar el DFA global para depuración
     try:
         global_dfa = generate_global_dfa()
